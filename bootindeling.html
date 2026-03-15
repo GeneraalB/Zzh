@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zomerzotheid Bootindeling</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bootindeling">
+<meta name="theme-color" content="#060f1c">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #07111f; color: #dde4ee; font-size: 14px; min-height: 100vh;
+}
+.header {
+  background: #060f1c; border-bottom: 1px solid rgba(201,168,76,0.4);
+  padding: 14px 20px; display: flex; align-items: center; gap: 12px;
+  position: sticky; top: 0; z-index: 100;
+}
+.header-title { font-family: Georgia, serif; font-size: 18px; font-weight: 700; }
+.header-title span { color: #c9a84c; }
+.header-sub { font-size: 10px; color: #3a6080; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 2px; }
+.tabs {
+  display: flex; background: #080f1c; border-bottom: 1px solid #1a3050;
+  padding: 0 16px; overflow-x: auto;
+}
+.tab-btn {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: #3a6080; padding: 11px 14px; font-weight: 600; font-size: 11px;
+  letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
+  white-space: nowrap; font-family: inherit;
+}
+.tab-btn.active { color: #c9a84c; border-bottom-color: #c9a84c; }
+.content { padding: 16px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+.card {
+  background: #0c1e35; border: 1px solid #1a3050;
+  border-radius: 8px; padding: 16px; margin-bottom: 14px;
+}
+.card-title { font-family: Georgia, serif; color: #c9a84c; font-size: 14px; margin-bottom: 10px; }
+.badge {
+  display: inline-block; padding: 2px 7px; border-radius: 3px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.05em; white-space: nowrap;
+}
+.badge-M  { background:#4a1515; color:#ff6b6b; border:1px solid #7a2020; }
+.badge-K  { background:#15401f; color:#51cf66; border:1px solid #1a6b30; }
+.badge-C  { background:#301545; color:#cc5de8; border:1px solid #5a1e7a; }
+.badge-P  { background:#403010; color:#fcc419; border:1px solid #7a5a10; }
+.badge-Z  { background:#102a45; color:#4dabf7; border:1px solid #1a4a7a; }
+.badge-S  { background:#282828; color:#adb5bd; border:1px solid #444; }
+.badge-G  { background:#402810; color:#ff922b; border:1px solid #7a4210; }
+.badge-J  { background:#102235; color:#74c0fc; border:1px solid #1a3a60; }
+.badge-Mv { background:#3a1025; color:#f783ac; border:1px solid #6a1a40; }
+.badge-mplus { background:#2a2000; color:#fcc419; border:1px solid #5a4500; font-style:italic; }
+.badge-ruzie { background:#3d0808; color:#ff6b6b; border:1px solid #7a1010; font-size:10px; }
+.badge-koppel { background:#102a10; color:#69db7c; border:1px solid #1a5a1a; font-size:10px; }
+.badge-medkop { background:#3a0a3a; color:#da77f2; border:1px solid #6a1a6a; font-size:10px; }
+.badge-row { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:10px; }
+.lijst { max-height: 220px; overflow-y: auto; margin-bottom: 10px; }
+.lijst-item {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 0; border-bottom: 1px solid #0f2030; font-size: 12px; flex-wrap: wrap;
+}
+.lijst-item .naam { flex: 1; min-width: 80px; }
+.leeg { color: #1e3a5f; font-style: italic; text-align: center; padding: 14px 0; font-size: 12px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.form-col { display: flex; flex-direction: column; }
+label.lbl { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #4a6a8a; margin-bottom: 3px; }
+input[type=text], input[type=number], select {
+  background: #081526; border: 1px solid #1e3a5f; color: #dde4ee;
+  padding: 7px 10px; border-radius: 4px; font-size: 13px; font-family: inherit; width: 100%;
+}
+input:focus, select:focus { outline: 1px solid #4dabf7; }
+select option { background: #081526; }
+.check-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+.check-lbl { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #5a8aaa; cursor: pointer; }
+.btn-gold {
+  background: #c9a84c; color: #07111f; border: none;
+  padding: 8px 16px; border-radius: 4px; font-weight: 700; font-size: 12px;
+  cursor: pointer; font-family: inherit;
+}
+.btn-gold:hover { background: #dbb85a; }
+.btn-gold.big { font-size: 14px; padding: 10px 22px; }
+.btn-del { background: none; border: none; color: #c0392b; cursor: pointer; font-size: 13px; padding: 0 4px; }
+.hint { font-size: 11px; color: #3a6080; margin-bottom: 10px; line-height: 1.5; }
+.sectie-titel {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #4a6a8a; margin: 14px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #1a3050;
+}
+.koppel-rij {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  border-radius: 4px; background: #081a2e; border: 1px solid #1a3050;
+  margin-bottom: 6px; font-size: 12px; flex-wrap: wrap;
+}
+.koppel-rij .koppel-namen { flex: 1; color: #dde4ee; }
+.koppel-rij .koppel-type { font-size: 10px; color: #5a8aaa; }
+.msg { padding: 8px 12px; border-radius: 4px; margin-bottom: 6px; font-size: 12px; }
+.msg-ok   { background:#0a3020; border:1px solid #1a7040; color:#51cf66; }
+.msg-err  { background:#3d0808; border:1px solid #7a1010; color:#ff6b6b; }
+.msg-warn { background:#3d2800; border:1px solid #7a5000; color:#fcc419; }
+.stats {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  padding: 10px 16px; background: #0c1e35; border: 1px solid #1a3050;
+  border-radius: 6px; margin-bottom: 14px;
+}
+.stat-val { font-family: Georgia, serif; font-size: 22px; color: #4dabf7; line-height: 1; }
+.stat-lbl { font-size: 10px; color: #3a6080; text-transform: uppercase; letter-spacing: 0.07em; margin-top: 2px; }
+.boten-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
+.boot-card { background: #0c1e35; border: 1px solid #1a3050; border-radius: 8px; overflow: hidden; }
+.boot-card.philippine { border-color: rgba(201,168,76,0.4); grid-column: 1/-1; }
+.boot-header {
+  background: #0a1a30; padding: 8px 12px;
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid #1a3050;
+}
+.philippine .boot-header { background: #1a1400; border-bottom-color: rgba(201,168,76,0.2); }
+.boot-naam { font-family: Georgia, serif; font-weight: 700; font-size: 13px; color: #4dabf7; }
+.philippine .boot-naam { color: #c9a84c; }
+.boot-aantal { font-size: 11px; color: #3a6080; }
+.boot-body { padding: 10px 12px; }
+.boot-persoon { display: flex; align-items: center; gap: 5px; font-size: 12px; padding: 2px 0; flex-wrap: wrap; }
+.boot-persoon .naam { flex: 1; min-width: 80px; }
+.warn-label { color: #ff6b6b; font-size: 10px; margin-left: 4px; }
+.philippine-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px,1fr)); gap: 3px; }
+.btn-row { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+.ronde-header {
+  font-family: Georgia, serif; font-size: 16px; color: #c9a84c;
+  margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid rgba(201,168,76,0.2);
+}
+.locatie-item { padding: 8px 0; border-bottom: 1px solid #0f2030; }
+.locatie-naam { font-weight: 600; font-size: 12px; margin-bottom: 2px; }
+.locatie-desc { font-size: 11px; color: #3a6080; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span style="font-size:24px;flex-shrink:0">⛵</span>
+  <div style="flex:1;min-width:0">
+    <div class="header-title">Zomerzotheid <span>Bootindeling</span></div>
+    <div class="header-sub">Quasi-random verdeling Valken/Randmeren &amp; Philippine</div>
+  </div>
+  <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;flex-shrink:0;max-width:100%">
+    <button class="btn-gold" onclick="slaOp()" style="font-size:11px;padding:5px 10px">💾</button>
+    <button onclick="exportJson()" title="Exporteer JSON" style="background:transparent;border:1px solid #4dabf7;color:#4dabf7;font-size:11px;padding:5px 10px;border-radius:4px;cursor:pointer;font-family:inherit">📤</button>
+    <label title="Importeer JSON" style="background:transparent;border:1px solid #4dabf7;color:#4dabf7;font-size:11px;padding:5px 10px;border-radius:4px;cursor:pointer;font-family:inherit">
+      📥<input type="file" id="jsonImportInput" accept=".json" onchange="importJson(event)" style="display:none">
+    </label>
+    <button onclick="wisData()" title="Wis alle data" style="background:transparent;border:1px solid #3a6080;color:#3a6080;font-size:11px;padding:5px 10px;border-radius:4px;cursor:pointer;font-family:inherit">🗑</button>
+    <span id="opslagStatus" style="font-size:11px;color:#51cf66;max-width:120px;word-break:break-word"></span>
+  </div>
+</div>
+
+<div id="herstelBanner" style="display:none;background:#0a2a10;border-bottom:1px solid #1a7040;padding:10px 20px;align-items:center;gap:12px;font-size:12px;color:#51cf66">
+  <span>💾 Er is opgeslagen data gevonden.</span>
+  <button class="btn-gold" onclick="laadOp();document.getElementById('herstelBanner').style.display='none';" style="font-size:11px;padding:5px 12px">Herstel data</button>
+  <button onclick="document.getElementById('herstelBanner').style.display='none';" style="background:none;border:none;color:#3a6080;cursor:pointer;font-size:11px">Negeer</button>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="toon('deelnemers',this)">① Deelnemers</button>
+  <button class="tab-btn" onclick="toon('boten',this)">② Valken/Randmeren</button>
+  <button class="tab-btn" onclick="toon('koppelingen',this)">③ Koppelingen</button>
+  <button class="tab-btn" onclick="toon('indeling',this)">④ Indeling</button>
+</div>
+
+<div class="content">
+
+  <!-- TAB 1 -->
+  <div id="tab-deelnemers" class="tab-panel active">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">👤 Volwassenen (<span id="vTel">0</span>)</div>
+        <div class="badge-row">
+          <span class="badge badge-M">M</span><span class="badge badge-K">K</span>
+          <span class="badge badge-C">C</span><span class="badge badge-P">P</span>
+          <span class="badge badge-Z">Z</span><span class="badge badge-S">S</span>
+          <span class="badge badge-G">G</span>
+        </div>
+        <div class="lijst" id="vLijst"><div class="leeg">Nog geen volwassenen</div></div>
+        <div class="form-grid">
+          <div class="form-col"><label class="lbl">Naam</label><input type="text" id="vNaam" placeholder="Naam" onkeydown="if(event.key==='Enter')addVol()"></div>
+          <div class="form-col"><label class="lbl">Categorie</label>
+            <select id="vCat">
+              <option value="M">M – Medisch</option><option value="K">K – Keuken</option>
+              <option value="C">C – Crea</option><option value="P">P – Pi</option>
+              <option value="Z" selected>Z – Zeiler</option><option value="S">S – Staf</option>
+              <option value="G">G – Gast</option>
+            </select>
+          </div>
+        </div>
+        <div class="check-row">
+          <label class="check-lbl"><input type="checkbox" id="vBoer"> 🏡 Boerderij</label>
+          <label class="check-lbl"><input type="checkbox" id="vBuit"> 🌍 Buitenland</label>
+          <label class="check-lbl"><input type="checkbox" id="vPhil"> ⚓ Philippine</label>
+        </div>
+        <button class="btn-gold" onclick="addVol()">＋ Toevoegen</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🧒 Kinderen (<span id="kTel">0</span>)</div>
+        <div class="badge-row">
+          <span class="badge badge-J">J – Jongen</span>
+          <span class="badge badge-Mv">M – Meisje</span>
+          <span class="badge badge-mplus">m+</span>
+        </div>
+        <p class="hint">Kinderen met <strong style="color:#fcc419">m+</strong> (medisch plus) nemen extra ruimte in: de boot waar zij op zitten heeft automatisch max−1 capaciteit.</p>
+        <div class="lijst" id="kLijst"><div class="leeg">Nog geen kinderen</div></div>
+        <div class="form-grid">
+          <div class="form-col"><label class="lbl">Naam</label><input type="text" id="kNaam" placeholder="Naam" onkeydown="if(event.key==='Enter')addKin()"></div>
+          <div class="form-col"><label class="lbl">Geslacht</label>
+            <select id="kGesl"><option value="J">J – Jongen</option><option value="M">M – Meisje</option></select>
+          </div>
+        </div>
+        <div class="check-row">
+          <label class="check-lbl"><input type="checkbox" id="kMv"> m+ (medisch plus)</label>
+          <label class="check-lbl"><input type="checkbox" id="kBoer"> 🏡 Boerderij</label>
+          <label class="check-lbl"><input type="checkbox" id="kBuit"> 🌍 Buitenland</label>
+        </div>
+        <button class="btn-gold" onclick="addKin()">＋ Toevoegen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2 -->
+  <div id="tab-boten" class="tab-panel">
+    <div style="max-width:520px">
+      <div class="card">
+        <div class="card-title">⛵ Valken / Randmeren</div>
+        <p class="hint">Elke boot krijgt automatisch ≥1 Zeiler (Z). Een Medisch-persoon (M) wordt alleen toegewezen aan boten <em>met kinderen</em>. Een boot met een m+-kind heeft automatisch max−1 capaciteit.</p>
+        <div class="lijst" id="bLijst"><div class="leeg">Nog geen boten</div></div>
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px;align-items:end">
+          <div class="form-col"><label class="lbl">Naam</label><input type="text" id="bNaam" placeholder="bijv. Valk 1" onkeydown="if(event.key==='Enter')addBoot()"></div>
+          <div class="form-col"><label class="lbl">Min</label><input type="number" id="bMin" value="4" min="1" max="10"></div>
+          <div class="form-col"><label class="lbl">Max</label><input type="number" id="bMax" value="6" min="1" max="12"></div>
+          <button class="btn-gold" onclick="addBoot()" style="padding:8px 12px;font-size:16px">＋</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🏛 Vaste locaties</div>
+        <div class="locatie-item"><div class="locatie-naam" style="color:#c9a84c">🌊 Philippine</div><div class="locatie-desc">Categorie P → automatisch Philippine</div></div>
+        <div class="locatie-item"><div class="locatie-naam" style="color:#e8d5b0">🏡 Boerderij</div><div class="locatie-desc">Handmatig instellen via tab ①</div></div>
+        <div class="locatie-item" style="border:none"><div class="locatie-naam" style="color:#5ec8d0">🌍 Buitenland</div><div class="locatie-desc">Handmatig instellen via tab ①</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3 -->
+  <div id="tab-koppelingen" class="tab-panel">
+    <div style="max-width:640px">
+      <div class="card">
+        <div class="card-title">🔗 Kinderen aan elkaar koppelen</div>
+        <p class="hint"><strong>Voorkeur:</strong> de tool probeert deze kinderen op dezelfde boot te plaatsen. Maximaal 3 kinderen per koppeling.</p>
+        <div id="kKoppelingLijst"><div class="leeg">Nog geen koppelingen</div></div>
+        <div class="sectie-titel">Nieuwe koppeling</div>
+        <div class="form-grid">
+          <div class="form-col"><label class="lbl">Kind 1</label><select id="kk1"><option value="">— kies kind —</option></select></div>
+          <div class="form-col"><label class="lbl">Kind 2</label><select id="kk2"><option value="">— kies kind —</option></select></div>
+        </div>
+        <div class="form-grid">
+          <div class="form-col"><label class="lbl">Kind 3 (optioneel)</label><select id="kk3"><option value="">— geen —</option></select></div>
+          <div></div>
+        </div>
+        <button class="btn-gold" onclick="addKKoppeling()">＋ Koppeling toevoegen</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">⚠️ Kind koppelen aan specifieke Medisch-persoon</div>
+        <p class="hint"><strong>Harde eis:</strong> dit kind komt altijd op de boot van de gekozen Medisch-persoon.</p>
+        <div id="mKoppelingLijst"><div class="leeg">Nog geen koppelingen</div></div>
+        <div class="sectie-titel">Nieuwe koppeling</div>
+        <div class="form-grid">
+          <div class="form-col"><label class="lbl">Kind</label><select id="mk_kind"><option value="">— kies kind —</option></select></div>
+          <div class="form-col"><label class="lbl">Medisch-persoon</label><select id="mk_medisch"><option value="">— kies medisch —</option></select></div>
+        </div>
+        <button class="btn-gold" onclick="addMKoppeling()">＋ Koppeling toevoegen</button>
+      </div>
+      <div class="card">
+        <div class="card-title">🚫 Kinderen uit elkaar houden</div>
+        <p class="hint"><strong>Harde eis:</strong> deze kinderen komen nooit op dezelfde boot.</p>
+        <div id="rKoppelingLijst"><div class="leeg">Nog geen conflicten</div></div>
+        <div class="sectie-titel">Nieuw conflict</div>
+        <div class="form-grid">
+          <div class="form-col"><label class="lbl">Kind 1</label><select id="rk1"><option value="">— kies kind —</option></select></div>
+          <div class="form-col"><label class="lbl">Kind 2</label><select id="rk2"><option value="">— kies kind —</option></select></div>
+        </div>
+        <button class="btn-gold" onclick="addRKoppeling()">＋ Conflict toevoegen</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🤝 Personen aan elkaar koppelen</div>
+        <p class="hint"><strong>Laagste prioriteit (voorkeur):</strong> de tool probeert deze personen op dezelfde boot te plaatsen. Als dit niet lukt wordt dit gemeld. Werkt voor alle categorieën — volwassenen én kinderen.</p>
+        <div id="pKoppelingLijst"><div class="leeg">Nog geen koppelingen</div></div>
+        <div class="sectie-titel">Nieuwe koppeling</div>
+        <div class="form-grid">
+          <div class="form-col"><label class="lbl">Persoon 1</label><select id="pk1"><option value="">— kies persoon —</option></select></div>
+          <div class="form-col"><label class="lbl">Persoon 2</label><select id="pk2"><option value="">— kies persoon —</option></select></div>
+        </div>
+        <button class="btn-gold" onclick="addPKoppeling()">＋ Koppeling toevoegen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4 -->
+  <div id="tab-indeling" class="tab-panel">
+    <div class="btn-row">
+      <button class="btn-gold big" id="btnGen" onclick="genereer()">🎲 Genereer indeling</button>
+      <button id="btnExport" onclick="exportXlsx()" style="display:none;background:transparent;border:1px solid #51cf66;color:#51cf66;padding:9px 16px;border-radius:4px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">⬇ Download Excel</button>
+      <span id="rondeInfo" style="font-size:12px;color:#3a6080"></span>
+    </div>
+    <div id="indelingMsgs"></div>
+    <div id="indelingOutput"></div>
+  </div>
+
+</div>
+
+<script>
+var volwassenen = [], kinderen = [], boten = [];
+var kKoppelingen = [], mKoppelingen = [];
+var rondeNr = 0;
+
+function uid() { return Math.random().toString(36).slice(2,9); }
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function shuffle(arr) {
+  var a = arr.slice();
+  for (var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}
+  return a;
+}
+function vind(arr, id) {
+  for (var i=0;i<arr.length;i++) if (arr[i].id===id) return arr[i];
+  return null;
+}
+
+// ── TABS ──
+function toon(naam, btn) {
+  document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  document.getElementById('tab-'+naam).classList.add('active');
+  btn.classList.add('active');
+  if (naam==='koppelingen') vulKoppelingSelects();
+}
+
+// ── BADGE ──
+function badge(type, label) {
+  var t = (label!==undefined) ? label : type;
+  return '<span class="badge badge-'+type+'">'+escHtml(t)+'</span>';
+}
+
+// ── VOLWASSENEN ──
+function addVol() {
+  var naam = document.getElementById('vNaam').value.trim();
+  if (!naam){alert('Vul een naam in.');return;}
+  volwassenen.push({id:uid(),naam:naam,cat:document.getElementById('vCat').value,
+    boerderij:document.getElementById('vBoer').checked,
+    buitenland:document.getElementById('vBuit').checked,
+    philippine:document.getElementById('vPhil').checked});
+  document.getElementById('vNaam').value='';
+  document.getElementById('vBoer').checked=false;
+  document.getElementById('vBuit').checked=false;
+  document.getElementById('vPhil').checked=false;
+  renderVol();
+}
+function renderVol() {
+  document.getElementById('vTel').textContent=volwassenen.length;
+  var el=document.getElementById('vLijst');
+  if (!volwassenen.length){el.innerHTML='<div class="leeg">Nog geen volwassenen</div>';return;}
+  el.innerHTML=volwassenen.map(function(v){
+    return '<div class="lijst-item"><span class="naam">'+escHtml(v.naam)+'</span>'
+      +badge(v.cat)
+      +(v.boerderij?' <span>🏡</span>':'')
+      +(v.buitenland?' <span>🌍</span>':'')
+      +(v.philippine?' <span>⚓</span>':'')
+      +'<button class="btn-del" onclick="delVol(\''+v.id+'\')">✕</button></div>';
+  }).join('');
+}
+function delVol(id) {
+  volwassenen=volwassenen.filter(function(v){return v.id!==id;});
+  mKoppelingen=mKoppelingen.filter(function(k){return k.medischId!==id;});
+  renderVol(); renderMKoppelingen();
+}
+
+// ── KINDEREN ──
+function addKin() {
+  var naam=document.getElementById('kNaam').value.trim();
+  if (!naam){alert('Vul een naam in.');return;}
+  kinderen.push({id:uid(),naam:naam,geslacht:document.getElementById('kGesl').value,
+    mv:document.getElementById('kMv').checked,
+    boerderij:document.getElementById('kBoer').checked,
+    buitenland:document.getElementById('kBuit').checked});
+  document.getElementById('kNaam').value='';
+  document.getElementById('kMv').checked=false;
+  document.getElementById('kBoer').checked=false;
+  document.getElementById('kBuit').checked=false;
+  renderKin();
+}
+function renderKin() {
+  document.getElementById('kTel').textContent=kinderen.length;
+  var el=document.getElementById('kLijst');
+  if (!kinderen.length){el.innerHTML='<div class="leeg">Nog geen kinderen</div>';return;}
+  el.innerHTML=kinderen.map(function(k){
+    return '<div class="lijst-item"><span class="naam">'+escHtml(k.naam)+'</span>'
+      +badge(k.geslacht==='J'?'J':'Mv',k.geslacht)
+      +(k.mv?' '+badge('mplus','m+'):'')
+      +(k.boerderij?' <span>🏡</span>':'')
+      +(k.buitenland?' <span>🌍</span>':'')
+      +'<button class="btn-del" onclick="delKin(\''+k.id+'\')">✕</button></div>';
+  }).join('');
+}
+function delKin(id) {
+  kinderen=kinderen.filter(function(k){return k.id!==id;});
+  kKoppelingen=kKoppelingen.filter(function(k){return k.ids.indexOf(id)===-1;});
+  mKoppelingen=mKoppelingen.filter(function(k){return k.kindId!==id;});
+  rKoppelingen=rKoppelingen.filter(function(r){return r.ids.indexOf(id)===-1;});
+  renderKin(); renderKKoppelingen(); renderMKoppelingen(); renderRKoppelingen();
+}
+
+// ── BOTEN ──
+function addBoot() {
+  var naam=document.getElementById('bNaam').value.trim();
+  if (!naam){alert('Geef een naam op.');return;}
+  boten.push({id:uid(),naam:naam,
+    min:parseInt(document.getElementById('bMin').value)||4,
+    max:parseInt(document.getElementById('bMax').value)||6});
+  document.getElementById('bNaam').value='';
+  renderBoten();
+}
+function renderBoten() {
+  var el=document.getElementById('bLijst');
+  if (!boten.length){el.innerHTML='<div class="leeg">Nog geen boten</div>';return;}
+  el.innerHTML=boten.map(function(b){
+    return '<div class="lijst-item"><span class="naam" style="font-weight:600">⛵ '+escHtml(b.naam)+'</span>'
+      +'<span style="font-size:11px;color:#3a6080">min '+b.min+' – max '+b.max+'</span>'
+      +'<button class="btn-del" onclick="delBoot(\''+b.id+'\')">✕</button></div>';
+  }).join('');
+}
+function delBoot(id) { boten=boten.filter(function(b){return b.id!==id;}); renderBoten(); }
+
+// ── KOPPELINGSELECTS VULLEN ──
+function vulKoppelingSelects() {
+  var bk = kinderen.filter(function(k){return !k.boerderij&&!k.buitenland;});
+  var bm = volwassenen.filter(function(v){return v.cat==='M'&&!v.boerderij&&!v.buitenland&&!v.philippine;});
+  var beschikbareV = volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&v.cat!=='P'&&!v.philippine;});
+
+  ['kk1','kk2','kk3','mk_kind','rk1','rk2'].forEach(function(sid){
+    var sel=document.getElementById(sid);
+    var huidig=sel.value;
+    sel.innerHTML=(sid==='kk3')?'<option value="">— geen —</option>':'<option value="">— kies kind —</option>';
+    bk.forEach(function(k){
+      sel.innerHTML+='<option value="'+k.id+'"'+(k.id===huidig?' selected':'')+'>'+escHtml(k.naam)+(k.mv?' (m+)':'')+'</option>';
+    });
+  });
+
+  var msel=document.getElementById('mk_medisch');
+  var huidigM=msel.value;
+  msel.innerHTML='<option value="">— kies medisch —</option>';
+  bm.forEach(function(v){
+    msel.innerHTML+='<option value="'+v.id+'"'+(v.id===huidigM?' selected':'')+'>'+escHtml(v.naam)+'</option>';
+  });
+
+  // Personen-koppeling: alle beschikbare personen
+  ['pk1','pk2'].forEach(function(sid){
+    var sel=document.getElementById(sid);
+    var huidig=sel.value;
+    sel.innerHTML='<option value="">— kies persoon —</option>';
+    beschikbareV.forEach(function(v){
+      sel.innerHTML+='<option value="v_'+v.id+'"'+(('v_'+v.id)===huidig?' selected':'')+'>'+escHtml(v.naam)+' ['+v.cat+']</option>';
+    });
+    bk.forEach(function(k){
+      sel.innerHTML+='<option value="k_'+k.id+'"'+(('k_'+k.id)===huidig?' selected':'')+'>'+escHtml(k.naam)+' ['+k.geslacht+']</option>';
+    });
+  });
+}
+
+// ── KOPPELING KINDEREN ──
+function addKKoppeling() {
+  var id1=document.getElementById('kk1').value;
+  var id2=document.getElementById('kk2').value;
+  var id3=document.getElementById('kk3').value;
+  if (!id1||!id2){alert('Kies minimaal 2 kinderen.');return;}
+  if (id1===id2||(id3&&(id1===id3||id2===id3))){alert('Kies verschillende kinderen.');return;}
+  var ids=[id1,id2];
+  if (id3) ids.push(id3);
+  kKoppelingen.push({id:uid(),ids:ids});
+  renderKKoppelingen();
+}
+function renderKKoppelingen() {
+  var el=document.getElementById('kKoppelingLijst');
+  if (!kKoppelingen.length){el.innerHTML='<div class="leeg">Nog geen koppelingen</div>';return;}
+  el.innerHTML=kKoppelingen.map(function(k){
+    var namen=k.ids.map(function(id){var x=vind(kinderen,id);return x?escHtml(x.naam):'?';}).join(' + ');
+    return '<div class="koppel-rij"><span class="koppel-namen">🔗 '+namen+'</span>'
+      +'<span class="koppel-type">voorkeur</span>'
+      +'<button class="btn-del" onclick="delKK(\''+k.id+'\')">✕</button></div>';
+  }).join('');
+}
+function delKK(id){kKoppelingen=kKoppelingen.filter(function(k){return k.id!==id;});renderKKoppelingen();}
+
+// ── KOPPELING MEDISCH ──
+function addMKoppeling() {
+  var kindId=document.getElementById('mk_kind').value;
+  var medischId=document.getElementById('mk_medisch').value;
+  if (!kindId||!medischId){alert('Kies een kind én een Medisch-persoon.');return;}
+  if (mKoppelingen.some(function(k){return k.kindId===kindId;})){alert('Dit kind is al gekoppeld.');return;}
+  mKoppelingen.push({id:uid(),kindId:kindId,medischId:medischId});
+  renderMKoppelingen();
+}
+function renderMKoppelingen() {
+  var el=document.getElementById('mKoppelingLijst');
+  if (!mKoppelingen.length){el.innerHTML='<div class="leeg">Nog geen koppelingen</div>';return;}
+  el.innerHTML=mKoppelingen.map(function(k){
+    var kind=vind(kinderen,k.kindId);
+    var med=vind(volwassenen,k.medischId);
+    return '<div class="koppel-rij"><span class="koppel-namen">⚠️ '
+      +(kind?escHtml(kind.naam):'?')+' → '+(med?escHtml(med.naam):'?')+'</span>'
+      +'<span class="koppel-type">harde eis</span>'
+      +'<button class="btn-del" onclick="delMK(\''+k.id+'\')">✕</button></div>';
+  }).join('');
+}
+function delMK(id){mKoppelingen=mKoppelingen.filter(function(k){return k.id!==id;});renderMKoppelingen();}
+
+// ── RUZIE-KOPPELINGEN ──
+var rKoppelingen = [];
+function addRKoppeling() {
+  var id1=document.getElementById('rk1').value;
+  var id2=document.getElementById('rk2').value;
+  if (!id1||!id2){alert('Kies twee kinderen.');return;}
+  if (id1===id2){alert('Kies twee verschillende kinderen.');return;}
+  var bestaatAl=rKoppelingen.some(function(r){
+    return (r.ids[0]===id1&&r.ids[1]===id2)||(r.ids[0]===id2&&r.ids[1]===id1);
+  });
+  if (bestaatAl){alert('Dit conflict bestaat al.');return;}
+  rKoppelingen.push({id:uid(),ids:[id1,id2]});
+  renderRKoppelingen();
+}
+function renderRKoppelingen() {
+  var el=document.getElementById('rKoppelingLijst');
+  if (!rKoppelingen.length){el.innerHTML='<div class="leeg">Nog geen conflicten</div>';return;}
+  el.innerHTML=rKoppelingen.map(function(r){
+    var namen=r.ids.map(function(id){var x=vind(kinderen,id);return x?escHtml(x.naam):'?';}).join(' 🚫 ');
+    return '<div class="koppel-rij" style="border-color:#3d1010">'
+      +'<span class="koppel-namen">'+namen+'</span>'
+      +'<span class="koppel-type" style="color:#ff6b6b">harde eis</span>'
+      +'<button class="btn-del" onclick="delRK(\''+r.id+'\')">✕</button></div>';
+  }).join('');
+}
+function delRK(id){rKoppelingen=rKoppelingen.filter(function(r){return r.id!==id;});renderRKoppelingen();}
+
+// ── PERSONEN-KOPPELINGEN (voorkeur, laagste prioriteit) ──
+var pKoppelingen = [];
+function addPKoppeling() {
+  var ref1=document.getElementById('pk1').value;
+  var ref2=document.getElementById('pk2').value;
+  if (!ref1||!ref2){alert('Kies twee personen.');return;}
+  if (ref1===ref2){alert('Kies twee verschillende personen.');return;}
+  var bestaatAl=pKoppelingen.some(function(p){
+    return (p.refs[0]===ref1&&p.refs[1]===ref2)||(p.refs[0]===ref2&&p.refs[1]===ref1);
+  });
+  if (bestaatAl){alert('Deze koppeling bestaat al.');return;}
+  pKoppelingen.push({id:uid(),refs:[ref1,ref2]});
+  renderPKoppelingen();
+}
+function getPersoonByRef(ref) {
+  if (ref.indexOf('v_')===0) return vind(volwassenen, ref.slice(2));
+  if (ref.indexOf('k_')===0) return vind(kinderen, ref.slice(2));
+  return null;
+}
+function renderPKoppelingen() {
+  var el=document.getElementById('pKoppelingLijst');
+  if (!pKoppelingen.length){el.innerHTML='<div class="leeg">Nog geen koppelingen</div>';return;}
+  el.innerHTML=pKoppelingen.map(function(p){
+    var n1=getPersoonByRef(p.refs[0]); var n2=getPersoonByRef(p.refs[1]);
+    var namen=(n1?escHtml(n1.naam):'?')+' 🤝 '+(n2?escHtml(n2.naam):'?');
+    return '<div class="koppel-rij"><span class="koppel-namen">'+namen+'</span>'
+      +'<span class="koppel-type">voorkeur</span>'
+      +'<button class="btn-del" onclick="delPK(\''+p.id+'\')">✕</button></div>';
+  }).join('');
+}
+function delPK(id){pKoppelingen=pKoppelingen.filter(function(p){return p.id!==id;});renderPKoppelingen();}
+
+// ── GENEREER ──
+function genereer() {
+  rondeNr++;
+  var msgsEl=document.getElementById('indelingMsgs');
+  var outEl=document.getElementById('indelingOutput');
+  msgsEl.innerHTML=''; outEl.innerHTML='';
+  document.getElementById('rondeInfo').textContent='Ronde '+rondeNr;
+  document.getElementById('btnGen').textContent='🔀 Opnieuw genereren';
+  document.getElementById('btnExport').style.display='inline-block';
+
+  var philippine=volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&(v.cat==='P'||v.philippine);});
+  var boerderij=volwassenen.filter(function(v){return v.boerderij;}).concat(kinderen.filter(function(k){return k.boerderij;}));
+  var buitenland=volwassenen.filter(function(v){return v.buitenland;}).concat(kinderen.filter(function(k){return k.buitenland;}));
+  var beschikV=shuffle(volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&v.cat!=='P'&&!v.philippine;}));
+  var beschikK=kinderen.filter(function(k){return !k.boerderij&&!k.buitenland;});
+  var zeilers=beschikV.filter(function(v){return v.cat==='Z';});
+  var medisch=beschikV.filter(function(v){return v.cat==='M';});
+  var overigen=beschikV.filter(function(v){return v.cat!=='Z'&&v.cat!=='M';});
+
+  var errors=[];
+  if (!boten.length) errors.push('Voeg eerst boten toe (tab ② Boten).');
+  if (zeilers.length<boten.length) errors.push('Te weinig Zeilers (Z): '+zeilers.length+' beschikbaar, '+boten.length+' nodig.');
+  // Medisch alleen verplicht op boten MET kinderen — wordt later gecontroleerd
+  mKoppelingen.forEach(function(mk){
+    var med=vind(volwassenen,mk.medischId);
+    if (!med||med.boerderij||med.buitenland||med.philippine||med.cat!=='M'){
+      var kind=vind(kinderen,mk.kindId);
+      errors.push((kind?kind.naam:'?')+' is gekoppeld aan een Medisch-persoon die niet beschikbaar is op een Valk.');
+    }
+  });
+  if (errors.length){
+    msgsEl.innerHTML=errors.map(function(e){return '<div class="msg msg-err">❌ '+escHtml(e)+'</div>';}).join('');
+    return;
+  }
+
+  // Initialiseer boten
+  var ib=boten.map(function(b){return {id:b.id,naam:b.naam,min:b.min,max:b.max,origMax:b.max,effectiefMax:b.max,personen:[]};});
+
+  function herbereken(boot) {
+    var mvCount=boot.personen.filter(function(p){return p.mv;}).length;
+    boot.effectiefMax=boot.origMax-mvCount;
+  }
+
+  // Stap 1: Zeilers
+  var zS=shuffle(zeilers);
+  ib.forEach(function(b,i){b.personen.push(zS[i]);});
+
+  // Stap 2: Medisch-koppelingen bepalen welke M op welke boot
+  var medischNaarBootIdx={};
+  mKoppelingen.forEach(function(mk){
+    if (!medischNaarBootIdx.hasOwnProperty(mk.medischId)){
+      // Kies boot met minste M-toewijzingen
+      var minIdx=0, minCount=9999;
+      ib.forEach(function(b,idx){
+        var n=Object.keys(medischNaarBootIdx).filter(function(mid){return medischNaarBootIdx[mid]===idx;}).length;
+        if (n<minCount){minCount=n;minIdx=idx;}
+      });
+      medischNaarBootIdx[mk.medischId]=minIdx;
+    }
+  });
+
+  // Zet gekoppelde M op hun boot
+  var gebruiktM={};
+  Object.keys(medischNaarBootIdx).forEach(function(mId){
+    var persoon=vind(medisch,mId);
+    if (persoon&&!gebruiktM[mId]){
+      ib[medischNaarBootIdx[mId]].personen.push(persoon);
+      gebruiktM[mId]=true;
+    }
+  });
+
+  // Resterende M: alleen op boten die al een kind hebben óf waar een kind-koppeling naar verwijst
+  // We doen dit na de kindplaatsing — zie stap 3b
+
+  // Stap 3: Gekoppelde kinderen aan M plaatsen (harde eis)
+  var geplaatsteK={};
+  mKoppelingen.forEach(function(mk){
+    var kind=vind(beschikK,mk.kindId);
+    var bootIdx=medischNaarBootIdx[mk.medischId];
+    if (kind&&bootIdx!==undefined){
+      ib[bootIdx].personen.push(kind);
+      herbereken(ib[bootIdx]);
+      geplaatsteK[kind.id]=true;
+    }
+  });
+
+  // Stap 3b: Wijs resterende M toe — alleen aan boten die al een kind hebben
+  var mRest=shuffle(medisch.filter(function(v){return !gebruiktM[v.id];}));
+  var mi=0;
+  ib.forEach(function(b){
+    var heeftKind=b.personen.some(function(p){return p.geslacht!==undefined;});
+    var heeftM=b.personen.some(function(p){return p.cat==='M';});
+    if (heeftKind&&!heeftM){
+      if (mRest[mi]){b.personen.push(mRest[mi]);gebruiktM[mRest[mi].id]=true;mi++;}
+    }
+  });
+
+  // Stap 4: Voorkeurskoppelingen kinderen
+  var vrijeK=shuffle(beschikK.filter(function(k){return !geplaatsteK[k.id];}));
+  var inGroep={};
+  var groepen=[];
+  kKoppelingen.forEach(function(kk){
+    var groep=kk.ids.map(function(id){return vind(vrijeK,id);}).filter(function(k){return k&&!inGroep[k.id];});
+    if (groep.length>=2){
+      groep.forEach(function(k){inGroep[k.id]=true;});
+      groepen.push(groep);
+    }
+  });
+  var enkelen=vrijeK.filter(function(k){return !inGroep[k.id];});
+
+  // Helper: mag persoon p op boot b? (ruzie-check)
+  function magOpBoot(p, b) {
+    return rKoppelingen.every(function(r){
+      if (r.ids.indexOf(p.id)===-1) return true; // p niet in dit conflict
+      var anderKindId = r.ids[0]===p.id ? r.ids[1] : r.ids[0];
+      return !b.personen.some(function(q){return q.id===anderKindId;});
+    });
+  }
+
+  // Groepen proberen samen te plaatsen
+  var noodEnkelen=[];
+  groepen.forEach(function(groep){
+    var opties=ib.filter(function(b){return (b.effectiefMax-b.personen.length)>=groep.length;});
+    opties.sort(function(a,b){return a.personen.length-b.personen.length;});
+    if (opties.length){
+      groep.forEach(function(k){opties[0].personen.push(k);herbereken(opties[0]);});
+    } else {
+      groep.forEach(function(k){noodEnkelen.push(k);});
+    }
+  });
+
+  // Stap 5: Resterende personen verdelen (overigen + extra Z + resterende M als overschot)
+  var rest=shuffle(enkelen.concat(noodEnkelen)
+    .concat(shuffle(overigen))
+    .concat(zS.slice(boten.length)));
+
+  var warn=[];
+  rest.forEach(function(p){
+    var opties=ib.filter(function(b){return b.personen.length<b.effectiefMax && magOpBoot(p,b);});
+    if (!opties.length) opties=ib.filter(function(b){return b.personen.length<b.effectiefMax;}); // noodgeval: negeer ruzie
+    opties.sort(function(a,b){return a.personen.length-b.personen.length;});
+    if (opties.length){opties[0].personen.push(p);herbereken(opties[0]);}
+    else warn.push(escHtml(p.naam)+' kon niet worden ingedeeld (boten vol).');
+  });
+
+  // Stap 5b: Nu alle kinderen geplaatst zijn — wijs nogmaals M toe aan boten met kind maar zonder M
+  ib.forEach(function(b){
+    var heeftKind=b.personen.some(function(p){return p.geslacht!==undefined;});
+    var heeftM=b.personen.some(function(p){return p.cat==='M';});
+    if (heeftKind&&!heeftM){
+      if (mRest[mi]){b.personen.push(mRest[mi]);gebruiktM[mRest[mi].id]=true;mi++;}
+      else warn.push('Boot "'+escHtml(b.naam)+'" heeft kinderen maar geen Medisch-persoon beschikbaar.');
+    }
+  });
+
+  // Resterende M die nergens nodig zijn: gewoon verdelen over andere boten
+  mRest.slice(mi).forEach(function(v){
+    var opties=ib.filter(function(b){return b.personen.length<b.effectiefMax;});
+    opties.sort(function(a,b){return a.personen.length-b.personen.length;});
+    if (opties.length){opties[0].personen.push(v);}
+  });
+
+  ib.forEach(function(b){
+    if (b.personen.length<b.min) warn.push('Boot "'+escHtml(b.naam)+'" heeft slechts '+b.personen.length+' personen (min. '+b.min+').');
+    // Controleer ruzie-conflicten
+    rKoppelingen.forEach(function(r){
+      var k1=b.personen.some(function(p){return p.id===r.ids[0];});
+      var k2=b.personen.some(function(p){return p.id===r.ids[1];});
+      if (k1&&k2){
+        var n1=vind(kinderen,r.ids[0]); var n2=vind(kinderen,r.ids[1]);
+        warn.push('⚠ Conflict: '+(n1?escHtml(n1.naam):'?')+' en '+(n2?escHtml(n2.naam):'?')+' zitten samen op boot "'+escHtml(b.naam)+'" (geen andere optie gevonden).');
+      }
+    });
+  });
+
+  // Stap 6: Personen-koppelingen controleren (laagste prioriteit — alleen melding)
+  pKoppelingen.forEach(function(pk){
+    var p1=getPersoonByRef(pk.refs[0]);
+    var p2=getPersoonByRef(pk.refs[1]);
+    if (!p1||!p2) return;
+    var boot1=null, boot2=null;
+    ib.forEach(function(b){
+      if (b.personen.some(function(p){return p.id===p1.id;})) boot1=b;
+      if (b.personen.some(function(p){return p.id===p2.id;})) boot2=b;
+    });
+    if (boot1&&boot2&&boot1!==boot2){
+      warn.push('🤝 Koppeling niet gelukt: '+escHtml(p1.naam)+' en '+escHtml(p2.naam)+' zitten op verschillende boten.');
+    }
+  });
+
+  // Render
+  if (warn.length){
+    msgsEl.innerHTML=warn.map(function(w){return '<div class="msg msg-warn">⚠ '+w+'</div>';}).join('');
+  } else {
+    msgsEl.innerHTML='<div class="msg msg-ok">✅ Indeling geslaagd — alle regels voldaan.</div>';
+  }
+
+  var totaal=ib.reduce(function(s,b){return s+b.personen.length;},0);
+  outEl.innerHTML='<div class="ronde-header">Ronde '+rondeNr+'</div>'
+    +'<div class="stats">'
+    +stat(ib.length,'Valken')+stat(totaal,'Op valken')
+    +stat(philippine.length,'Philippine')+stat(boerderij.length,'Boerderij')+stat(buitenland.length,'Buitenland')
+    +'</div><div class="boten-grid" id="botenGrid"></div>';
+
+  var grid=document.getElementById('botenGrid');
+  if (philippine.length) grid.innerHTML+=bootCard('🌊 Philippine',philippine,true,0,9999,9999);
+  ib.forEach(function(b){grid.innerHTML+=bootCard('⛵ '+b.naam,b.personen,false,b.min,b.effectiefMax,b.origMax);});
+  if (boerderij.length) grid.innerHTML+=locatieCard('🏡 Boerderij',boerderij,'#e8d5b0');
+  if (buitenland.length) grid.innerHTML+=locatieCard('🌍 Buitenland',buitenland,'#5ec8d0');
+
+  // Bewaar voor export
+  _lastIndeling = { boten: ib, philippine: philippine, boerderij: boerderij, buitenland: buitenland };
+}
+
+function stat(v,l){return '<div><div class="stat-val">'+v+'</div><div class="stat-lbl">'+l+'</div></div>';}
+
+function personRij(p){
+  var b=p.cat?badge(p.cat):badge(p.geslacht==='J'?'J':'Mv',p.geslacht);
+  var mv=p.mv?' '+badge('mplus','m+'):'';
+  var heeftKK=kKoppelingen.some(function(k){return k.ids.indexOf(p.id)!==-1;});
+  var heeftMK=mKoppelingen.some(function(k){return k.kindId===p.id||k.medischId===p.id;});
+  var heeftRK=rKoppelingen.some(function(r){return r.ids.indexOf(p.id)!==-1;});
+  var kBadge=heeftKK?' <span class="badge badge-koppel">🔗</span>':'';
+  var mBadge=heeftMK?' <span class="badge badge-medkop">⚠️</span>':'';
+  var rBadge=heeftRK?' <span class="badge badge-ruzie">🚫</span>':'';
+  return '<div class="boot-persoon"><span class="naam">'+escHtml(p.naam)+'</span>'+b+mv+kBadge+mBadge+rBadge+'</div>';
+}
+
+function bootCard(naam,personen,isPhil,min,effectiefMax,origMax){
+  var hasZ=personen.some(function(p){return p.cat==='Z';});
+  var hasM=personen.some(function(p){return p.cat==='M';});
+  var wZ=(!isPhil&&!hasZ)?'<span class="warn-label">⚠Z</span>':'';
+  var heeftKinderen=personen.some(function(p){return p.geslacht!==undefined;});
+  var wM=(!isPhil&&!hasM&&heeftKinderen)?'<span class="warn-label">⚠M</span>':'';
+  var overvol=!isPhil&&personen.length>effectiefMax;
+  var tekort=!isPhil&&personen.length<min;
+  var kleur=(overvol||tekort)?'#7a1010':'#1a3050';
+  var cls='boot-card'+(isPhil?' philippine':'');
+  var aantalStr;
+  if (isPhil) aantalStr=personen.length+' personen';
+  else if (origMax!==effectiefMax) aantalStr=personen.length+'/'+effectiefMax+' <span style="font-size:10px;color:#fcc419">(m+: max was '+origMax+')</span>';
+  else aantalStr=personen.length+'/'+effectiefMax;
+  var body=isPhil?'<div class="philippine-grid">'+personen.map(personRij).join('')+'</div>':personen.map(personRij).join('');
+  return '<div class="'+cls+'" style="border-color:'+kleur+'">'
+    +'<div class="boot-header"><span class="boot-naam">'+escHtml(naam)+wZ+wM+'</span><span class="boot-aantal">'+aantalStr+'</span></div>'
+    +'<div class="boot-body">'+body+'</div></div>';
+}
+
+function locatieCard(naam,personen,kleur){
+  return '<div class="boot-card"><div class="boot-header">'
+    +'<span class="boot-naam" style="color:'+kleur+'">'+naam+'</span>'
+    +'<span class="boot-aantal">'+personen.length+' personen</span></div>'
+    +'<div class="boot-body">'+personen.map(personRij).join('')+'</div></div>';
+}
+
+// ── EXPORT NAAR XLSX (via CSV in Excel-compatibel formaat) ───────────────
+var _lastIndeling = null; // bewaar laatste indeling voor export
+
+function exportXlsx() {
+  if (!_lastIndeling) { alert('Genereer eerst een indeling.'); return; }
+  var ind = _lastIndeling;
+
+  // Bouw rijen
+  var rijen = [['Boot/Locatie','Naam','Type','Categorie','m+']];
+  ind.boten.forEach(function(b) {
+    b.personen.forEach(function(p) {
+      rijen.push([b.naam, p.naam, p.cat?'Volwassene':'Kind', p.cat||p.geslacht, p.mv?'m+':'']);
+    });
+  });
+  ind.philippine.forEach(function(p) {
+    rijen.push(['Philippine', p.naam, 'Volwassene', p.cat, '']);
+  });
+  ind.boerderij.forEach(function(p) {
+    var k=!p.cat; rijen.push(['Boerderij', p.naam, k?'Kind':'Volwassene', k?p.geslacht:p.cat, p.mv?'m+':'']);
+  });
+  ind.buitenland.forEach(function(p) {
+    var k=!p.cat; rijen.push(['Buitenland', p.naam, k?'Kind':'Volwassene', k?p.geslacht:p.cat, p.mv?'m+':'']);
+  });
+
+  // Bouw echte xlsx via Office Open XML + ZIP
+  var sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+    + '<sheetData>';
+
+  rijen.forEach(function(rij, ri) {
+    sheetXml += '<row r="'+(ri+1)+'">';
+    rij.forEach(function(cel, ci) {
+      var col = String.fromCharCode(65+ci);
+      var addr = col+(ri+1);
+      sheetXml += '<c r="'+addr+'" t="inlineStr"><is><t>'+escXml(String(cel))+'</t></is></c>';
+    });
+    sheetXml += '</row>';
+  });
+  sheetXml += '</sheetData></worksheet>';
+
+  var wbXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
+    + ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+    + '<sheets><sheet name="Ronde '+rondeNr+'" sheetId="1" r:id="rId1"/></sheets>'
+    + '</workbook>';
+
+  var relsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+    + '</Relationships>';
+
+  var appRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+    + '</Relationships>';
+
+  var contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+    + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    + '<Default Extension="xml" ContentType="application/xml"/>'
+    + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+    + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+    + '</Types>';
+
+  // Bouw ZIP handmatig (geen externe library nodig)
+  var files = {
+    '[Content_Types].xml': contentTypes,
+    '_rels/.rels': appRelsXml,
+    'xl/workbook.xml': wbXml,
+    'xl/_rels/workbook.xml.rels': relsXml,
+    'xl/worksheets/sheet1.xml': sheetXml
+  };
+
+  var zip = buildZip(files);
+  var blob = new Blob([zip], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'zomerzotheid-ronde' + rondeNr + '.xlsx';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Minimale ZIP-builder (geen externe library)
+function buildZip(files) {
+  var entries = [];
+  var centralDir = [];
+  var offset = 0;
+
+  function strToBytes(s) {
+    var b = new Uint8Array(s.length);
+    for (var i=0;i<s.length;i++) b[i]=s.charCodeAt(i)&0xff;
+    return b;
+  }
+  function crc32(data) {
+    var table = crc32.t || (crc32.t = (function(){
+      var t=new Uint32Array(256),n,c,k;
+      for(n=0;n<256;n++){c=n;for(k=0;k<8;k++)c=c&1?(0xEDB88320^(c>>>1)):c>>>1;t[n]=c;}
+      return t;
+    })());
+    var c=0xFFFFFFFF;
+    for(var i=0;i<data.length;i++) c=table[(c^data[i])&0xff]^(c>>>8);
+    return (c^0xFFFFFFFF)>>>0;
+  }
+  function u16(v){return [v&0xff,(v>>8)&0xff];}
+  function u32(v){return [v&0xff,(v>>8)&0xff,(v>>16)&0xff,(v>>24)&0xff];}
+  function concat(arrays) {
+    var len=0; arrays.forEach(function(a){len+=a.length;});
+    var out=new Uint8Array(len),pos=0;
+    arrays.forEach(function(a){out.set(a,pos);pos+=a.length;});
+    return out;
+  }
+
+  Object.keys(files).forEach(function(name) {
+    var data = strToBytes(files[name]);
+    var nameBytes = strToBytes(name);
+    var crc = crc32(data);
+    var localHeader = concat([
+      new Uint8Array([0x50,0x4b,0x03,0x04,0x14,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]),
+      new Uint8Array(u32(crc)),
+      new Uint8Array(u32(data.length)),
+      new Uint8Array(u32(data.length)),
+      new Uint8Array(u16(nameBytes.length)),
+      new Uint8Array([0x00,0x00]),
+      nameBytes
+    ]);
+    var centralEntry = concat([
+      new Uint8Array([0x50,0x4b,0x01,0x02,0x14,0x00,0x14,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]),
+      new Uint8Array(u32(crc)),
+      new Uint8Array(u32(data.length)),
+      new Uint8Array(u32(data.length)),
+      new Uint8Array(u16(nameBytes.length)),
+      new Uint8Array([0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]),
+      new Uint8Array(u32(offset)),
+      nameBytes
+    ]);
+    entries.push(concat([localHeader, data]));
+    centralDir.push(centralEntry);
+    offset += localHeader.length + data.length;
+  });
+
+  var cdSize = centralDir.reduce(function(s,e){return s+e.length;},0);
+  var eocd = concat([
+    new Uint8Array([0x50,0x4b,0x05,0x06,0x00,0x00,0x00,0x00]),
+    new Uint8Array(u16(entries.length)),
+    new Uint8Array(u16(entries.length)),
+    new Uint8Array(u32(cdSize)),
+    new Uint8Array(u32(offset)),
+    new Uint8Array([0x00,0x00])
+  ]);
+
+  return concat(entries.concat(centralDir).concat([eocd]));
+}
+
+function escXml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── JSON EXPORT / IMPORT ─────────────────────────────────────────────────
+function exportJson() {
+  var data = {
+    versie: 1,
+    datum: new Date().toISOString().slice(0,10),
+    volwassenen: volwassenen,
+    kinderen: kinderen,
+    boten: boten,
+    kKoppelingen: kKoppelingen,
+    mKoppelingen: mKoppelingen,
+    rKoppelingen: rKoppelingen,
+    pKoppelingen: pKoppelingen
+  };
+  var json = JSON.stringify(data, null, 2);
+  var blob = new Blob([json], {type: 'application/json'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'zomerzotheid-backup-' + data.datum + '.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toonOpslagStatus('📤 Geëxporteerd', '#4dabf7');
+}
+
+function importJson(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var data = JSON.parse(e.target.result);
+      if (!data.volwassenen && !data.kinderen) {
+        toonOpslagStatus('❌ Ongeldig bestand', '#ff6b6b'); return;
+      }
+      if (!confirm('Huidige data overschrijven met inhoud van "' + file.name + '"?')) return;
+      volwassenen  = data.volwassenen  || [];
+      kinderen     = data.kinderen     || [];
+      boten        = data.boten        || [];
+      kKoppelingen = data.kKoppelingen || [];
+      mKoppelingen = data.mKoppelingen || [];
+      rKoppelingen = data.rKoppelingen || [];
+      pKoppelingen = data.pKoppelingen || [];
+      renderVol(); renderKin(); renderBoten();
+      renderKKoppelingen(); renderMKoppelingen(); renderRKoppelingen(); renderPKoppelingen();
+      toonOpslagStatus('📥 ' + volwassenen.length + ' volw., ' + kinderen.length + ' kind., ' + boten.length + ' boten geladen', '#4dabf7');
+    } catch(err) {
+      toonOpslagStatus('❌ Fout: ' + err.message, '#ff6b6b');
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function slaOp() {
+  var data = {
+    volwassenen: volwassenen, kinderen: kinderen, boten: boten,
+    kKoppelingen: kKoppelingen, mKoppelingen: mKoppelingen,
+    rKoppelingen: rKoppelingen, pKoppelingen: pKoppelingen
+  };
+  try {
+    localStorage.setItem('zomerkamp_data', JSON.stringify(data));
+    toonOpslagStatus('✅ Opgeslagen in browser', '#51cf66');
+  } catch(e) {
+    toonOpslagStatus('❌ Opslaan mislukt: '+e.message, '#ff6b6b');
+  }
+}
+
+function laadOp() {
+  try {
+    var raw = localStorage.getItem('zomerkamp_data');
+    if (!raw) { toonOpslagStatus('Geen opgeslagen data gevonden.', '#fcc419'); return; }
+    var data = JSON.parse(raw);
+    volwassenen   = data.volwassenen   || [];
+    kinderen      = data.kinderen      || [];
+    boten         = data.boten         || [];
+    kKoppelingen  = data.kKoppelingen  || [];
+    mKoppelingen  = data.mKoppelingen  || [];
+    rKoppelingen  = data.rKoppelingen  || [];
+    pKoppelingen  = data.pKoppelingen  || [];
+    renderVol(); renderKin(); renderBoten();
+    renderKKoppelingen(); renderMKoppelingen(); renderRKoppelingen(); renderPKoppelingen();
+    toonOpslagStatus('✅ Data herladen ('+volwassenen.length+' volw., '+kinderen.length+' kind., '+boten.length+' boten)', '#51cf66');
+  } catch(e) {
+    toonOpslagStatus('❌ Laden mislukt: '+e.message, '#ff6b6b');
+  }
+}
+
+function wisData() {
+  if (!confirm('Weet je zeker dat je alle ingevoerde data wilt wissen?')) return;
+  localStorage.removeItem('zomerkamp_data');
+  volwassenen=[]; kinderen=[]; boten=[];
+  kKoppelingen=[]; mKoppelingen=[]; rKoppelingen=[]; pKoppelingen=[];
+  renderVol(); renderKin(); renderBoten();
+  renderKKoppelingen(); renderMKoppelingen(); renderRKoppelingen(); renderPKoppelingen();
+  document.getElementById('indelingMsgs').innerHTML='';
+  document.getElementById('indelingOutput').innerHTML='';
+  rondeNr=0;
+  document.getElementById('btnGen').textContent='🎲 Genereer indeling';
+  document.getElementById('rondeInfo').textContent='';
+  toonOpslagStatus('🗑 Data gewist', '#fcc419');
+}
+
+function toonOpslagStatus(tekst, kleur) {
+  var el = document.getElementById('opslagStatus');
+  if (!el) return;
+  el.textContent = tekst;
+  el.style.color = kleur;
+  setTimeout(function(){ el.textContent=''; }, 4000);
+}
+
+// Auto-laad bij openen
+window.addEventListener('load', function() {
+  var raw = localStorage.getItem('zomerkamp_data');
+  if (raw) {
+    var banner = document.getElementById('herstelBanner');
+    if (banner) banner.style.display = 'flex';
+  }
+});
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js');
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "Zomerzotheid Bootindeling",
+  "short_name": "Bootindeling",
+  "description": "Quasi-random bootindeling voor Zomerzotheid",
+  "start_url": "bootindeling.html",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#060f1c",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
