@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Bootindeling">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -172,6 +173,26 @@ select option { background: #081526; }
 
   <!-- TAB 1 -->
   <div id="tab-deelnemers" class="tab-panel active">
+
+    <!-- Excel import -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-title">📊 Importeer Excel / CSV</div>
+      <p class="hint" style="margin-bottom:10px">
+        Upload een <strong>.xlsx</strong> of <strong>.csv</strong> bestand met tabbladen <strong>"Volwassenen"</strong> en <strong>"Kinderen"</strong>.<br>
+        Kolommen Volwassenen: <em>Naam, Categorie, Boerderij, Buitenland, Philippine</em><br>
+        Kolommen Kinderen: <em>Naam, Geslacht, m+, Boerderij, Buitenland</em><br>
+        Waarden voor ja/nee: <strong>ja</strong>, <strong>x</strong>, <strong>1</strong> of leeg laten.
+      </p>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <label style="background:#c9a84c;color:#07111f;font-weight:700;font-size:12px;padding:8px 16px;border-radius:4px;cursor:pointer;font-family:inherit">
+          📂 Kies bestand
+          <input type="file" id="excelImport" accept=".xlsx,.xls,.csv" onchange="importeerExcel(event)" style="display:none">
+        </label>
+        <button onclick="downloadVoorbeeldExcel()" style="background:transparent;border:1px solid #4dabf7;color:#4dabf7;font-size:12px;padding:7px 14px;border-radius:4px;cursor:pointer;font-family:inherit">⬇ Download voorbeeldbestand</button>
+        <span id="importStatus" style="font-size:11px;color:#51cf66"></span>
+      </div>
+    </div>
+
     <div class="grid-2">
       <div class="card">
         <div class="card-title">👤 Volwassenen (<span id="vTel">0</span>)</div>
@@ -992,6 +1013,114 @@ function buildZip(files) {
   ]);
 
   return concat(entries.concat(centralDir).concat([eocd]));
+}
+
+// ── EXCEL / CSV IMPORT ───────────────────────────────────────────────────
+function isTruthy(v) {
+  if (!v) return false;
+  var s = String(v).toLowerCase().trim();
+  return ['ja','yes','1','x','true','waar'].indexOf(s) !== -1;
+}
+
+function importeerExcel(event) {
+  var file = event.target.files[0];
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      var wb = XLSX.read(e.target.result, {type:'array'});
+      var toegevoegdV = 0, toegevoegdK = 0, fout = [];
+
+      // Zoek volwassenen-tabblad
+      var vNaam = wb.SheetNames.find(function(n){ return n.toLowerCase().indexOf('volwassen') !== -1; });
+      if (vNaam) {
+        var rijen = XLSX.utils.sheet_to_json(wb.Sheets[vNaam], {defval:''});
+        rijen.forEach(function(r) {
+          var naam = (r['Naam']||r['naam']||'').toString().trim();
+          var cat  = (r['Categorie']||r['categorie']||r['Cat']||r['cat']||'').toString().trim().toUpperCase();
+          if (!naam) return;
+          if (['M','K','C','P','Z','S','G'].indexOf(cat) === -1) {
+            fout.push(naam + ': onbekende categorie "' + cat + '"');
+            return;
+          }
+          volwassenen.push({
+            id: uid(), naam: naam, cat: cat,
+            boerderij:  isTruthy(r['Boerderij']  ||r['boerderij']),
+            buitenland: isTruthy(r['Buitenland']  ||r['buitenland']),
+            philippine: isTruthy(r['Philippine']  ||r['philippine'])
+          });
+          toegevoegdV++;
+        });
+      }
+
+      // Zoek kinderen-tabblad
+      var kNaam = wb.SheetNames.find(function(n){ return n.toLowerCase().indexOf('kind') !== -1; });
+      if (kNaam) {
+        var rijK = XLSX.utils.sheet_to_json(wb.Sheets[kNaam], {defval:''});
+        rijK.forEach(function(r) {
+          var naam     = (r['Naam']||r['naam']||'').toString().trim();
+          var geslacht = (r['Geslacht']||r['geslacht']||r['J/M']||'').toString().trim().toUpperCase();
+          if (!naam) return;
+          if (['J','M'].indexOf(geslacht) === -1) {
+            fout.push(naam + ': geslacht moet J of M zijn');
+            return;
+          }
+          kinderen.push({
+            id: uid(), naam: naam, geslacht: geslacht,
+            mv:         isTruthy(r['m+']||r['mv']||r['MV']||r['Mv']||r['M+']),
+            boerderij:  isTruthy(r['Boerderij'] ||r['boerderij']),
+            buitenland: isTruthy(r['Buitenland']||r['buitenland'])
+          });
+          toegevoegdK++;
+        });
+      }
+
+      renderVol(); renderKin();
+      var status = '✅ ' + toegevoegdV + ' volwassenen, ' + toegevoegdK + ' kinderen geladen';
+      if (fout.length) status += ' — ⚠ ' + fout.length + ' overgeslagen: ' + fout.join('; ');
+      document.getElementById('importStatus').textContent = status;
+      document.getElementById('importStatus').style.color = fout.length ? '#fcc419' : '#51cf66';
+    } catch(err) {
+      document.getElementById('importStatus').textContent = '❌ Fout: ' + err.message;
+      document.getElementById('importStatus').style.color = '#ff6b6b';
+    }
+    event.target.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function downloadVoorbeeldExcel() {
+  var wb = XLSX.utils.book_new();
+
+  var volwData = [
+    ['Naam','Categorie','Boerderij','Buitenland','Philippine'],
+    ['Jan Jansen','Z','','',''],
+    ['Marie de Vries','M','','',''],
+    ['Piet Pietersen','K','','',''],
+    ['Anna Smit','P','','','ja'],
+    ['Kees de Boer','Z','','',''],
+    ['Lisa Bakker','M','ja','',''],
+    ['Tom van Dijk','S','','',''],
+    ['Sara Visser','C','','ja','']
+  ];
+  var wsV = XLSX.utils.aoa_to_sheet(volwData);
+  wsV['!cols'] = [{wch:20},{wch:12},{wch:12},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, wsV, 'Volwassenen');
+
+  var kindData = [
+    ['Naam','Geslacht','m+','Boerderij','Buitenland'],
+    ['Emma','M','','',''],
+    ['Lucas','J','','',''],
+    ['Sophie','M','ja','',''],
+    ['Daan','J','','ja',''],
+    ['Julia','M','','',''],
+    ['Noah','J','','','ja']
+  ];
+  var wsK = XLSX.utils.aoa_to_sheet(kindData);
+  wsK['!cols'] = [{wch:20},{wch:10},{wch:6},{wch:12},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, wsK, 'Kinderen');
+
+  XLSX.writeFile(wb, 'voorbeeld-deelnemers.xlsx');
 }
 
 function escXml(s) {
