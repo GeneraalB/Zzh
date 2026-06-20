@@ -246,7 +246,7 @@ select option { background: #081526; }
         <div class="check-row">
           <label class="check-lbl"><input type="checkbox" id="kBoer"> 🏡 Boerderij</label>
           <label class="check-lbl"><input type="checkbox" id="kBuit"> 🌍 Buitenland</label>
-          <label class="check-lbl"><input type="checkbox" id="kPhil"> 🌊 Philippine</label>
+          <label class="check-lbl"><input type="checkbox" id="kPhil"> ⚓ Philippine</label>
         </div>
         <button class="btn-gold" onclick="addKin()">＋ Toevoegen</button>
       </div>
@@ -269,7 +269,7 @@ select option { background: #081526; }
       </div>
       <div class="card">
         <div class="card-title">🏛 Vaste locaties</div>
-        <div class="locatie-item"><div class="locatie-naam" style="color:#c9a84c">🌊 Philippine</div><div class="locatie-desc">Categorie P → automatisch Philippine</div></div>
+        <div class="locatie-item"><div class="locatie-naam" style="color:#c9a84c">⚓ Philippine</div><div class="locatie-desc">Categorie P → automatisch Philippine</div></div>
         <div class="locatie-item"><div class="locatie-naam" style="color:#e8d5b0">🏡 Boerderij</div><div class="locatie-desc">Handmatig instellen via tab ①</div></div>
         <div class="locatie-item" style="border:none"><div class="locatie-naam" style="color:#5ec8d0">🌍 Buitenland</div><div class="locatie-desc">Handmatig instellen via tab ①</div></div>
       </div>
@@ -416,12 +416,12 @@ function renderVol() {
     return '<div class="lijst-item">'
       +'<span class="naam">'+escHtml(v.naam)+'</span>'
       +badge(v.cat)
-      +'<label title="Boerderij" style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
-      +'<input type="checkbox" '+(v.boerderij?'checked':'')+' onchange="toggleVol(\''+v.id+'\',\'boerderij\',this.checked)"> 🏡</label>'
-      +'<label title="Buitenland" style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
-      +'<input type="checkbox" '+(v.buitenland?'checked':'')+' onchange="toggleVol(\''+v.id+'\',\'buitenland\',this.checked)"> 🌍</label>'
-      +'<label title="Philippine" style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
-      +'<input type="checkbox" '+(v.philippine?'checked':'')+' onchange="toggleVol(\''+v.id+'\',\'philippine\',this.checked)"> 🌊</label>'
+      +'<label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
+      +'<input type="checkbox" '+(v.boerderij?'checked':'')+' onchange="toggleVol(\''+v.id+'\',\'boerderij\',this.checked)"> 🏡 Boerderij</label>'
+      +'<label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
+      +'<input type="checkbox" '+(v.buitenland?'checked':'')+' onchange="toggleVol(\''+v.id+'\',\'buitenland\',this.checked)"> 🌍 Buitenland</label>'
+      +'<label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
+      +'<input type="checkbox" '+(v.philippine?'checked':'')+' onchange="toggleVol(\''+v.id+'\',\'philippine\',this.checked)"> ⚓ Philippine</label>'
       +'<button class="btn-del" onclick="delVol(\''+v.id+'\')">✕</button>'
       +'</div>';
   }).join('');
@@ -465,12 +465,12 @@ function renderKin() {
       +badge(k.geslacht==='J'?'J':'Mv',k.geslacht)
       +(k.nationaliteit?' <span style="font-size:11px;color:#5a8aaa">'+escHtml(k.nationaliteit)+'</span>':'')
       +(k.mv?' '+badge('mplus','m+'):'')
-      +'<label title="Boerderij" style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
-      +'<input type="checkbox" '+(k.boerderij?'checked':'')+' onchange="toggleKin(\''+k.id+'\',\'boerderij\',this.checked)"> 🏡</label>'
-      +'<label title="Buitenland" style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
-      +'<input type="checkbox" '+(k.buitenland?'checked':'')+' onchange="toggleKin(\''+k.id+'\',\'buitenland\',this.checked)"> 🌍</label>'
-      +'<label title="Philippine" style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
-      +'<input type="checkbox" '+(k.philippine?'checked':'')+' onchange="toggleKin(\''+k.id+'\',\'philippine\',this.checked)"> 🌊</label>'
+      +'<label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
+      +'<input type="checkbox" '+(k.boerderij?'checked':'')+' onchange="toggleKin(\''+k.id+'\',\'boerderij\',this.checked)"> 🏡 Boerderij</label>'
+      +'<label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
+      +'<input type="checkbox" '+(k.buitenland?'checked':'')+' onchange="toggleKin(\''+k.id+'\',\'buitenland\',this.checked)"> 🌍 Buitenland</label>'
+      +'<label style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
+      +'<input type="checkbox" '+(k.philippine?'checked':'')+' onchange="toggleKin(\''+k.id+'\',\'philippine\',this.checked)"> ⚓ Philippine</label>'
       +'<button class="btn-del" onclick="delKin(\''+k.id+'\')">✕</button>'
       +'</div>';
   }).join('');
@@ -898,7 +898,7 @@ function genereer() {
     +'</div><div class="boten-grid" id="botenGrid"></div>';
 
   var grid=document.getElementById('botenGrid');
-  if (philippine.length) grid.innerHTML+=bootCard('🌊 Philippine',philippine,true,0,9999,9999);
+  if (philippine.length) grid.innerHTML+=bootCard('⚓ Philippine',philippine,true,0,9999,9999);
   ib.forEach(function(b){grid.innerHTML+=bootCard('⛵ '+b.naam,b.personen,false,b.min,b.effectiefMax,b.origMax);});
   if (boerderij.length) grid.innerHTML+=locatieCard('🏡 Boerderij',boerderij,'#e8d5b0');
   if (buitenland.length) grid.innerHTML+=locatieCard('🌍 Buitenland',buitenland,'#5ec8d0');
