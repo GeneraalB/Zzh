@@ -413,13 +413,23 @@ function renderVol() {
   var el=document.getElementById('vLijst');
   if (!volwassenen.length){el.innerHTML='<div class="leeg">Nog geen volwassenen</div>';return;}
   el.innerHTML=volwassenen.map(function(v){
-    return '<div class="lijst-item"><span class="naam">'+escHtml(v.naam)+'</span>'
+    return '<div class="lijst-item">'
+      +'<span class="naam">'+escHtml(v.naam)+'</span>'
       +badge(v.cat)
-      +(v.boerderij?' <span>🏡</span>':'')
-      +(v.buitenland?' <span>🌍</span>':'')
-      +(v.philippine?' <span>⚓</span>':'')
-      +'<button class="btn-del" onclick="delVol(\''+v.id+'\')">✕</button></div>';
+      +'<label title="Boerderij" style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
+      +'<input type="checkbox" '+(v.boerderij?'checked':'')+' onchange="toggleVol(\''+v.id+'\',\'boerderij\',this.checked)"> 🏡</label>'
+      +'<label title="Buitenland" style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
+      +'<input type="checkbox" '+(v.buitenland?'checked':'')+' onchange="toggleVol(\''+v.id+'\',\'buitenland\',this.checked)"> 🌍</label>'
+      +'<label title="Philippine" style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
+      +'<input type="checkbox" '+(v.philippine?'checked':'')+' onchange="toggleVol(\''+v.id+'\',\'philippine\',this.checked)"> 🌊</label>'
+      +'<button class="btn-del" onclick="delVol(\''+v.id+'\')">✕</button>'
+      +'</div>';
   }).join('');
+}
+
+function toggleVol(id, veld, waarde) {
+  var v = vind(volwassenen, id);
+  if (v) v[veld] = waarde;
 }
 function delVol(id) {
   volwassenen=volwassenen.filter(function(v){return v.id!==id;});
@@ -450,15 +460,25 @@ function renderKin() {
   var el=document.getElementById('kLijst');
   if (!kinderen.length){el.innerHTML='<div class="leeg">Nog geen kinderen</div>';return;}
   el.innerHTML=kinderen.map(function(k){
-    return '<div class="lijst-item"><span class="naam">'+escHtml(k.naam)+'</span>'
+    return '<div class="lijst-item">'
+      +'<span class="naam">'+escHtml(k.naam)+'</span>'
       +badge(k.geslacht==='J'?'J':'Mv',k.geslacht)
       +(k.nationaliteit?' <span style="font-size:11px;color:#5a8aaa">'+escHtml(k.nationaliteit)+'</span>':'')
       +(k.mv?' '+badge('mplus','m+'):'')
-      +(k.boerderij?' <span>🏡</span>':'')
-      +(k.buitenland?' <span>🌍</span>':'')
-      +(k.philippine?' <span>🌊</span>':'')
-      +'<button class="btn-del" onclick="delKin(\''+k.id+'\')">✕</button></div>';
+      +'<label title="Boerderij" style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
+      +'<input type="checkbox" '+(k.boerderij?'checked':'')+' onchange="toggleKin(\''+k.id+'\',\'boerderij\',this.checked)"> 🏡</label>'
+      +'<label title="Buitenland" style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
+      +'<input type="checkbox" '+(k.buitenland?'checked':'')+' onchange="toggleKin(\''+k.id+'\',\'buitenland\',this.checked)"> 🌍</label>'
+      +'<label title="Philippine" style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:#5a8aaa">'
+      +'<input type="checkbox" '+(k.philippine?'checked':'')+' onchange="toggleKin(\''+k.id+'\',\'philippine\',this.checked)"> 🌊</label>'
+      +'<button class="btn-del" onclick="delKin(\''+k.id+'\')">✕</button>'
+      +'</div>';
   }).join('');
+}
+
+function toggleKin(id, veld, waarde) {
+  var k = vind(kinderen, id);
+  if (k) k[veld] = waarde;
 }
 function delKin(id) {
   kinderen=kinderen.filter(function(k){return k.id!==id;});
