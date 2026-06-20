@@ -180,7 +180,7 @@ select option { background: #081526; }
       <p class="hint" style="margin-bottom:10px">
         Upload een <strong>.xlsx</strong> of <strong>.csv</strong> bestand met tabbladen <strong>"Volwassenen"</strong> en <strong>"Kinderen"</strong>.<br>
         Kolommen Volwassenen: <em>Naam, Categorie, Boerderij, Buitenland, Philippine</em><br>
-        Kolommen Kinderen: <em>Naam, Geslacht, m+, Boerderij, Buitenland</em><br>
+        Kolommen Kinderen: <em>Naam, J/M, m+, Nationaliteit, Boerderij, Buitenland, Philippine</em><br>
         Waarden voor ja/nee: <strong>ja</strong>, <strong>x</strong>, <strong>1</strong> of leeg laten.
       </p>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -229,7 +229,7 @@ select option { background: #081526; }
           <span class="badge badge-Mv">M – Meisje</span>
           <span class="badge badge-mplus">m+</span>
         </div>
-        <p class="hint">Kinderen met <strong style="color:#fcc419">m+</strong> (medisch plus) nemen extra ruimte in: de boot waar zij op zitten heeft automatisch max−1 capaciteit.</p>
+        <p class="hint">Kinderen met <strong style="color:#fcc419">m+</strong> nemen extra ruimte in: de boot waar zij op zitten heeft automatisch max−1 capaciteit. <strong>Nationaliteit</strong> is vrije tekst (bijv. "Oekraïens").</p>
         <div class="lijst" id="kLijst"><div class="leeg">Nog geen kinderen</div></div>
         <div class="form-grid">
           <div class="form-col"><label class="lbl">Naam</label><input type="text" id="kNaam" placeholder="Naam" onkeydown="if(event.key==='Enter')addKin()"></div>
@@ -237,10 +237,16 @@ select option { background: #081526; }
             <select id="kGesl"><option value="J">J – Jongen</option><option value="M">M – Meisje</option></select>
           </div>
         </div>
+        <div class="form-grid">
+          <div class="form-col"><label class="lbl">Nationaliteit</label><input type="text" id="kNat" placeholder="bijv. Oekraïens"></div>
+          <div class="form-col" style="justify-content:flex-end;padding-bottom:2px">
+            <label class="check-lbl"><input type="checkbox" id="kMv"> m+ (medisch plus)</label>
+          </div>
+        </div>
         <div class="check-row">
-          <label class="check-lbl"><input type="checkbox" id="kMv"> m+ (medisch plus)</label>
           <label class="check-lbl"><input type="checkbox" id="kBoer"> 🏡 Boerderij</label>
           <label class="check-lbl"><input type="checkbox" id="kBuit"> 🌍 Buitenland</label>
+          <label class="check-lbl"><input type="checkbox" id="kPhil"> 🌊 Philippine</label>
         </div>
         <button class="btn-gold" onclick="addKin()">＋ Toevoegen</button>
       </div>
@@ -328,6 +334,21 @@ select option { background: #081526; }
 
   <!-- TAB 4 -->
   <div id="tab-indeling" class="tab-panel">
+    <div class="card" style="margin-bottom:14px;max-width:520px">
+      <div class="card-title">⚙️ Instellingen indeling</div>
+      <div style="margin-bottom:6px">
+        <label class="lbl">Nationaliteit bij elkaar houden</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="range" id="natSlider" min="0" max="100" value="0"
+            oninput="document.getElementById('natWaarde').textContent=this.value+'%'"
+            style="flex:1;accent-color:#c9a84c">
+          <span id="natWaarde" style="font-size:13px;color:#c9a84c;min-width:36px">0%</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:10px;color:#3a6080;margin-top:2px">
+          <span>niet belangrijk</span><span>voorkeur</span><span>harde eis</span>
+        </div>
+      </div>
+    </div>
     <div class="btn-row">
       <button class="btn-gold big" id="btnGen" onclick="genereer()">🎲 Genereer indeling</button>
       <button id="btnExport" onclick="exportXlsx()" style="display:none;background:transparent;border:1px solid #51cf66;color:#51cf66;padding:9px 16px;border-radius:4px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">⬇ Download Excel</button>
@@ -411,13 +432,17 @@ function addKin() {
   var naam=document.getElementById('kNaam').value.trim();
   if (!naam){alert('Vul een naam in.');return;}
   kinderen.push({id:uid(),naam:naam,geslacht:document.getElementById('kGesl').value,
+    nationaliteit:document.getElementById('kNat').value.trim(),
     mv:document.getElementById('kMv').checked,
     boerderij:document.getElementById('kBoer').checked,
-    buitenland:document.getElementById('kBuit').checked});
+    buitenland:document.getElementById('kBuit').checked,
+    philippine:document.getElementById('kPhil').checked});
   document.getElementById('kNaam').value='';
+  document.getElementById('kNat').value='';
   document.getElementById('kMv').checked=false;
   document.getElementById('kBoer').checked=false;
   document.getElementById('kBuit').checked=false;
+  document.getElementById('kPhil').checked=false;
   renderKin();
 }
 function renderKin() {
@@ -427,9 +452,11 @@ function renderKin() {
   el.innerHTML=kinderen.map(function(k){
     return '<div class="lijst-item"><span class="naam">'+escHtml(k.naam)+'</span>'
       +badge(k.geslacht==='J'?'J':'Mv',k.geslacht)
+      +(k.nationaliteit?' <span style="font-size:11px;color:#5a8aaa">'+escHtml(k.nationaliteit)+'</span>':'')
       +(k.mv?' '+badge('mplus','m+'):'')
       +(k.boerderij?' <span>🏡</span>':'')
       +(k.buitenland?' <span>🌍</span>':'')
+      +(k.philippine?' <span>🌊</span>':'')
       +'<button class="btn-del" onclick="delKin(\''+k.id+'\')">✕</button></div>';
   }).join('');
 }
@@ -614,11 +641,12 @@ function genereer() {
   document.getElementById('btnGen').textContent='🔀 Opnieuw genereren';
   document.getElementById('btnExport').style.display='inline-block';
 
-  var philippine=volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&(v.cat==='P'||v.philippine);});
+  var philippine=volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&(v.cat==='P'||v.philippine);})
+    .concat(kinderen.filter(function(k){return k.philippine&&!k.boerderij&&!k.buitenland;}));
   var boerderij=volwassenen.filter(function(v){return v.boerderij;}).concat(kinderen.filter(function(k){return k.boerderij;}));
   var buitenland=volwassenen.filter(function(v){return v.buitenland;}).concat(kinderen.filter(function(k){return k.buitenland;}));
   var beschikV=shuffle(volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&v.cat!=='P'&&!v.philippine;}));
-  var beschikK=kinderen.filter(function(k){return !k.boerderij&&!k.buitenland;});
+  var beschikK=kinderen.filter(function(k){return !k.boerderij&&!k.buitenland&&!k.philippine;});
   var zeilers=beschikV.filter(function(v){return v.cat==='Z';});
   var medisch=beschikV.filter(function(v){return v.cat==='M';});
   var overigen=beschikV.filter(function(v){return v.cat!=='Z'&&v.cat!=='M';});
@@ -702,16 +730,47 @@ function genereer() {
   });
 
   // Stap 4: Voorkeurskoppelingen kinderen
+  var natGewicht = parseInt(document.getElementById('natSlider').value) || 0;
+
   var vrijeK=shuffle(beschikK.filter(function(k){return !geplaatsteK[k.id];}));
   var inGroep={};
   var groepen=[];
+
+  // Voorkeurskoppelingen kinderen
   kKoppelingen.forEach(function(kk){
     var groep=kk.ids.map(function(id){return vind(vrijeK,id);}).filter(function(k){return k&&!inGroep[k.id];});
     if (groep.length>=2){
       groep.forEach(function(k){inGroep[k.id]=true;});
-      groepen.push(groep);
+      groepen.push({leden:groep,prioriteit:100});
     }
   });
+
+  // Nationaliteitsgroepen (op basis van schuifregelaar)
+  if (natGewicht > 0) {
+    var natGroepen = {};
+    vrijeK.forEach(function(k){
+      if (!inGroep[k.id] && k.nationaliteit) {
+        var nat = k.nationaliteit.toLowerCase().trim();
+        if (!natGroepen[nat]) natGroepen[nat] = [];
+        natGroepen[nat].push(k);
+      }
+    });
+    Object.keys(natGroepen).forEach(function(nat){
+      var groep = natGroepen[nat];
+      if (groep.length >= 2) {
+        if (natGewicht >= 80) {
+          // Harde eis: altijd samen
+          groep.forEach(function(k){inGroep[k.id]=true;});
+          groepen.push({leden:groep,prioriteit:natGewicht});
+        } else {
+          // Voorkeur: probeer samen, splits als nodig
+          groepen.push({leden:groep,prioriteit:natGewicht});
+          groep.forEach(function(k){inGroep[k.id]=true;});
+        }
+      }
+    });
+  }
+
   var enkelen=vrijeK.filter(function(k){return !inGroep[k.id];});
 
   // Helper: mag persoon p op boot b? (ruzie-check)
@@ -723,15 +782,25 @@ function genereer() {
     });
   }
 
-  // Groepen proberen samen te plaatsen
+  // Groepen plaatsen (gesorteerd op prioriteit: hoog eerst)
+  groepen.sort(function(a,b){return b.prioriteit-a.prioriteit;});
   var noodEnkelen=[];
-  groepen.forEach(function(groep){
+  groepen.forEach(function(groepObj){
+    var groep=groepObj.leden;
     var opties=ib.filter(function(b){return (b.effectiefMax-b.personen.length)>=groep.length;});
     opties.sort(function(a,b){return a.personen.length-b.personen.length;});
     if (opties.length){
       groep.forEach(function(k){opties[0].personen.push(k);herbereken(opties[0]);});
-    } else {
+    } else if (groepObj.prioriteit < 80) {
+      // Voorkeur niet haalbaar: individueel plaatsen
       groep.forEach(function(k){noodEnkelen.push(k);});
+      if (natGewicht > 0 && natGewicht < 80) {
+        warn.push('🌍 Nationaliteitsgroep kon niet volledig samen geplaatst worden.');
+      }
+    } else {
+      // Harde eis ook niet haalbaar: splits noodgedwongen
+      groep.forEach(function(k){noodEnkelen.push(k);});
+      warn.push('🌍 Nationaliteitsgroep kon niet samen geplaatst worden (onvoldoende ruimte).');
     }
   });
 
@@ -823,13 +892,14 @@ function stat(v,l){return '<div><div class="stat-val">'+v+'</div><div class="sta
 function personRij(p){
   var b=p.cat?badge(p.cat):badge(p.geslacht==='J'?'J':'Mv',p.geslacht);
   var mv=p.mv?' '+badge('mplus','m+'):'';
+  var nat=(!p.cat&&p.nationaliteit)?' <span style="font-size:10px;color:#5a8aaa">'+escHtml(p.nationaliteit)+'</span>':'';
   var heeftKK=kKoppelingen.some(function(k){return k.ids.indexOf(p.id)!==-1;});
   var heeftMK=mKoppelingen.some(function(k){return k.kindId===p.id||k.medischId===p.id;});
   var heeftRK=rKoppelingen.some(function(r){return r.ids.indexOf(p.id)!==-1;});
   var kBadge=heeftKK?' <span class="badge badge-koppel">🔗</span>':'';
   var mBadge=heeftMK?' <span class="badge badge-medkop">⚠️</span>':'';
   var rBadge=heeftRK?' <span class="badge badge-ruzie">🚫</span>':'';
-  return '<div class="boot-persoon"><span class="naam">'+escHtml(p.naam)+'</span>'+b+mv+kBadge+mBadge+rBadge+'</div>';
+  return '<div class="boot-persoon"><span class="naam">'+escHtml(p.naam)+'</span>'+b+nat+mv+kBadge+mBadge+rBadge+'</div>';
 }
 
 function bootCard(naam,personen,isPhil,min,effectiefMax,origMax){
@@ -867,20 +937,20 @@ function exportXlsx() {
   var ind = _lastIndeling;
 
   // Bouw rijen
-  var rijen = [['Boot/Locatie','Naam','Type','Categorie','m+']];
+  var rijen = [['Boot/Locatie','Naam','Type','Geslacht/Cat','Nationaliteit','m+']];
   ind.boten.forEach(function(b) {
     b.personen.forEach(function(p) {
-      rijen.push([b.naam, p.naam, p.cat?'Volwassene':'Kind', p.cat||p.geslacht, p.mv?'m+':'']);
+      rijen.push([b.naam, p.naam, p.cat?'Volwassene':'Kind', p.cat||p.geslacht, p.nationaliteit||'', p.mv?'m+':'']);
     });
   });
   ind.philippine.forEach(function(p) {
-    rijen.push(['Philippine', p.naam, 'Volwassene', p.cat, '']);
+    rijen.push(['Philippine', p.naam, p.cat?'Volwassene':'Kind', p.cat||p.geslacht||'', p.nationaliteit||'', p.mv?'m+':'']);
   });
   ind.boerderij.forEach(function(p) {
-    var k=!p.cat; rijen.push(['Boerderij', p.naam, k?'Kind':'Volwassene', k?p.geslacht:p.cat, p.mv?'m+':'']);
+    var k=!p.cat; rijen.push(['Boerderij', p.naam, k?'Kind':'Volwassene', k?p.geslacht:p.cat, p.nationaliteit||'', p.mv?'m+':'']);
   });
   ind.buitenland.forEach(function(p) {
-    var k=!p.cat; rijen.push(['Buitenland', p.naam, k?'Kind':'Volwassene', k?p.geslacht:p.cat, p.mv?'m+':'']);
+    var k=!p.cat; rijen.push(['Buitenland', p.naam, k?'Kind':'Volwassene', k?p.geslacht:p.cat, p.nationaliteit||'', p.mv?'m+':'']);
   });
 
   // Bouw echte xlsx via Office Open XML + ZIP
@@ -1059,7 +1129,7 @@ function importeerExcel(event) {
         var rijK = XLSX.utils.sheet_to_json(wb.Sheets[kNaam], {defval:''});
         rijK.forEach(function(r) {
           var naam     = (r['Naam']||r['naam']||'').toString().trim();
-          var geslacht = (r['Geslacht']||r['geslacht']||r['J/M']||'').toString().trim().toUpperCase();
+          var geslacht = (r['J/M']||r['Geslacht']||r['geslacht']||r['j/m']||'').toString().trim().toUpperCase();
           if (!naam) return;
           if (['J','M'].indexOf(geslacht) === -1) {
             fout.push(naam + ': geslacht moet J of M zijn');
@@ -1067,9 +1137,11 @@ function importeerExcel(event) {
           }
           kinderen.push({
             id: uid(), naam: naam, geslacht: geslacht,
+            nationaliteit: (r['Nationaliteit']||r['nationaliteit']||'').toString().trim(),
             mv:         isTruthy(r['m+']||r['mv']||r['MV']||r['Mv']||r['M+']),
             boerderij:  isTruthy(r['Boerderij'] ||r['boerderij']),
-            buitenland: isTruthy(r['Buitenland']||r['buitenland'])
+            buitenland: isTruthy(r['Buitenland']||r['buitenland']),
+            philippine: isTruthy(r['Philippine'] ||r['philippine'])
           });
           toegevoegdK++;
         });
@@ -1108,16 +1180,17 @@ function downloadVoorbeeldExcel() {
   XLSX.utils.book_append_sheet(wb, wsV, 'Volwassenen');
 
   var kindData = [
-    ['Naam','Geslacht','m+','Boerderij','Buitenland'],
-    ['Emma','M','','',''],
-    ['Lucas','J','','',''],
-    ['Sophie','M','ja','',''],
-    ['Daan','J','','ja',''],
-    ['Julia','M','','',''],
-    ['Noah','J','','','ja']
+    ['Naam','J/M','m+','Nationaliteit','Boerderij','Buitenland','Philippine'],
+    ['Emma','M','','Nederlands','','',''],
+    ['Lucas','J','','Nederlands','','',''],
+    ['Sophie','M','ja','Oekraïens','','',''],
+    ['Daan','J','','Nederlands','ja','',''],
+    ['Olena','M','','Oekraïens','','',''],
+    ['Mykola','J','','Oekraïens','','',''],
+    ['Julia','M','','Belgisch','','','ja']
   ];
   var wsK = XLSX.utils.aoa_to_sheet(kindData);
-  wsK['!cols'] = [{wch:20},{wch:10},{wch:6},{wch:12},{wch:12}];
+  wsK['!cols'] = [{wch:20},{wch:6},{wch:6},{wch:14},{wch:12},{wch:12},{wch:12}];
   XLSX.utils.book_append_sheet(wb, wsK, 'Kinderen');
 
   XLSX.writeFile(wb, 'voorbeeld-deelnemers.xlsx');
