@@ -689,32 +689,19 @@ function genereer() {
     var score = warn.length * 100;
     if (natGewicht > 0) {
       ib.forEach(function(b){
-        // Tel per nationaliteit hoeveel kinderen op deze boot zitten
-        var natTelling = {};
+        var natTelling={};
         b.personen.forEach(function(p){
-          if (p.geslacht !== undefined && p.nationaliteit) {
-            var nat = p.nationaliteit.toLowerCase().trim();
-            natTelling[nat] = (natTelling[nat] || 0) + 1;
+          if(p.geslacht!==undefined&&p.nationaliteit){
+            var nat=p.nationaliteit.toLowerCase().trim();
+            natTelling[nat]=(natTelling[nat]||0)+1;
           }
         });
         Object.keys(natTelling).forEach(function(nat){
-          if (natTelling[nat] === 1) {
-            // Solo-kind van deze nationaliteit op deze boot: zwaar bestraffen
-            score += natGewicht * 10;
+          // Solo op een boot terwijl er >=2 van die nat beschikbaar zijn = zwaar bestraffen
+          var totaalVanNat=beschikK.filter(function(k){return k.nationaliteit&&k.nationaliteit.toLowerCase().trim()===nat;}).length;
+          if(natTelling[nat]===1 && totaalVanNat>=2){
+            score += 1000; // harde penalty voor solo
           }
-        });
-        // Ook belonen als groepen compleet samen zitten (spreiding over boten)
-        var natOpAndereBoot = {};
-        beschikK.forEach(function(k){
-          if (!k.nationaliteit) return;
-          var nat = k.nationaliteit.toLowerCase().trim();
-          var opDezeBoot = b.personen.some(function(p){return p.id===k.id;});
-          if (!opDezeBoot && natTelling[nat]) {
-            natOpAndereBoot[nat] = true;
-          }
-        });
-        Object.keys(natOpAndereBoot).forEach(function(nat){
-          score += natGewicht * 2; // gespreide groep kost punten
         });
       });
     }
@@ -781,11 +768,13 @@ function genereer() {
     var inGroep={};
     var groepen=[];
 
+    // Expliciete voorkeurskoppelingen (hoogste prioriteit)
     kKoppelingen.forEach(function(kk){
       var groep=kk.ids.map(function(id){return vind(vrijeK,id);}).filter(function(k){return k&&!inGroep[k.id];});
       if(groep.length>=2){groep.forEach(function(k){inGroep[k.id]=true;});groepen.push({leden:groep,prioriteit:100});}
     });
 
+    // Nationaliteitsgroepen: splits in duo's/trio's zodat niemand solo zit
     if(natGewicht>0){
       var natG={};
       vrijeK.forEach(function(k){
@@ -797,9 +786,29 @@ function genereer() {
       });
       Object.keys(natG).forEach(function(nat){
         var groep=natG[nat];
-        if(groep.length>=2){
-          groep.forEach(function(k){inGroep[k.id]=true;});
-          groepen.push({leden:groep,prioriteit:natGewicht});
+        if(groep.length<2) return; // solo van die nat → gewoon vrij laten (Pools kind)
+
+        // Splits grote groep in stukken van bootgrootte (max 3 per stuk zodat ze passen)
+        // Doel: elk stuk >= 2, zodat niemand solo is
+        var stukGrootte = Math.ceil(groep.length / boten.length);
+        if(stukGrootte < 2) stukGrootte = 2;
+        if(stukGrootte > 3) stukGrootte = 3;
+
+        for(var i=0; i<groep.length; i+=stukGrootte){
+          var stuk=groep.slice(i, i+stukGrootte);
+          // Als het laatste stuk maar 1 persoon heeft, voeg toe aan vorige groep
+          if(stuk.length===1 && groepen.length>0){
+            var vorigeGroep=groepen[groepen.length-1];
+            // Alleen samenvoegen als dezelfde nationaliteit
+            if(vorigeGroep.nat===nat){
+              vorigeGroep.leden=vorigeGroep.leden.concat(stuk);
+              stuk[0].inGroep=true;
+              inGroep[stuk[0].id]=true;
+              continue;
+            }
+          }
+          stuk.forEach(function(k){inGroep[k.id]=true;});
+          groepen.push({leden:stuk, prioriteit:natGewicht, nat:nat});
         }
       });
     }
