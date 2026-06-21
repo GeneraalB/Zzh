@@ -687,21 +687,35 @@ function genereer() {
   // ── SCORE FUNCTIE: lager = beter ──
   function scorePoging(ib, warn) {
     var score = warn.length * 100;
-    // Nationaliteit: tel hoeveel nat-groepen gesplitst zijn
     if (natGewicht > 0) {
-      var natGroepen = {};
-      beschikK.forEach(function(k){
-        if (!k.nationaliteit) return;
-        var nat = k.nationaliteit.toLowerCase().trim();
-        if (!natGroepen[nat]) natGroepen[nat] = [];
-        var bootIdx = -1;
-        ib.forEach(function(b,i){ if (b.personen.some(function(p){return p.id===k.id;})) bootIdx=i; });
-        natGroepen[nat].push(bootIdx);
-      });
-      Object.keys(natGroepen).forEach(function(nat){
-        var boots = natGroepen[nat];
-        var uniek = boots.filter(function(v,i,a){return a.indexOf(v)===i;}).length;
-        score += (uniek - 1) * natGewicht; // gespreide nat-groep kost punten
+      ib.forEach(function(b){
+        // Tel per nationaliteit hoeveel kinderen op deze boot zitten
+        var natTelling = {};
+        b.personen.forEach(function(p){
+          if (p.geslacht !== undefined && p.nationaliteit) {
+            var nat = p.nationaliteit.toLowerCase().trim();
+            natTelling[nat] = (natTelling[nat] || 0) + 1;
+          }
+        });
+        Object.keys(natTelling).forEach(function(nat){
+          if (natTelling[nat] === 1) {
+            // Solo-kind van deze nationaliteit op deze boot: zwaar bestraffen
+            score += natGewicht * 10;
+          }
+        });
+        // Ook belonen als groepen compleet samen zitten (spreiding over boten)
+        var natOpAndereBoot = {};
+        beschikK.forEach(function(k){
+          if (!k.nationaliteit) return;
+          var nat = k.nationaliteit.toLowerCase().trim();
+          var opDezeBoot = b.personen.some(function(p){return p.id===k.id;});
+          if (!opDezeBoot && natTelling[nat]) {
+            natOpAndereBoot[nat] = true;
+          }
+        });
+        Object.keys(natOpAndereBoot).forEach(function(nat){
+          score += natGewicht * 2; // gespreide groep kost punten
+        });
       });
     }
     return score;
@@ -853,6 +867,25 @@ function genereer() {
       if(boot1&&boot2&&boot1!==boot2)
         warn.push('🤝 Koppeling niet gelukt: '+escHtml(p1.naam)+' en '+escHtml(p2.naam)+' zitten op verschillende boten.');
     });
+
+    // Nationaliteit solo-waarschuwing
+    if (natGewicht > 0) {
+      ib.forEach(function(b){
+        var natTelling={};
+        b.personen.forEach(function(p){
+          if(p.geslacht!==undefined&&p.nationaliteit){
+            var nat=p.nationaliteit.toLowerCase().trim();
+            natTelling[nat]=(natTelling[nat]||0)+1;
+          }
+        });
+        Object.keys(natTelling).forEach(function(nat){
+          if(natTelling[nat]===1){
+            var kind=b.personen.find(function(p){return p.geslacht!==undefined&&p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;});
+            warn.push('🌍 '+escHtml(kind?kind.naam:'?')+' is als enige '+escHtml(nat)+' op boot "'+escHtml(b.naam)+'" (geen betere indeling mogelijk).');
+          }
+        });
+      });
+    }
 
     return {ib:ib, warn:warn, score:scorePoging(ib,warn)};
   }
