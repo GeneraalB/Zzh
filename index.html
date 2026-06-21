@@ -823,11 +823,13 @@ function genereer() {
         if(groep.length<2) return; // enkel kind → vrij laten
 
         // Splits in duo's/trio's
-        var stukGrootte=Math.max(2,Math.ceil(groep.length/boten.length));
-        if(stukGrootte>3) stukGrootte=3;
+        // Altijd duo's maken — nooit meer dan 2 per stuk
+        // Zo worden 4 Oekrainers verdeeld in 2x duo, niet 1x viertal
+        var stukGrootte=2;
         var stukken=[];
         for(var i=0;i<groep.length;i+=stukGrootte){
           var stuk=groep.slice(i,i+stukGrootte);
+          // Laatste stuk van 1: samenvoegen met vorige nat-groep
           if(stuk.length===1&&stukken.length>0){
             stukken[stukken.length-1]=stukken[stukken.length-1].concat(stuk);
           } else {
