@@ -661,16 +661,17 @@ function genereer() {
     .concat(kinderen.filter(function(k){return k.philippine&&!k.boerderij&&!k.buitenland;}));
   var boerderij=volwassenen.filter(function(v){return v.boerderij;}).concat(kinderen.filter(function(k){return k.boerderij;}));
   var buitenland=volwassenen.filter(function(v){return v.buitenland;}).concat(kinderen.filter(function(k){return k.buitenland;}));
-  var beschikV=shuffle(volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&v.cat!=='P'&&!v.philippine;}));
+  var beschikV=volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&v.cat!=='P'&&!v.philippine;});
   var beschikK=kinderen.filter(function(k){return !k.boerderij&&!k.buitenland&&!k.philippine;});
   var zeilers=beschikV.filter(function(v){return v.cat==='Z';});
   var medisch=beschikV.filter(function(v){return v.cat==='M';});
   var overigen=beschikV.filter(function(v){return v.cat!=='Z'&&v.cat!=='M';});
+  var natGewicht=parseInt(document.getElementById('natSlider').value)||0;
 
+  // Validatie
   var errors=[];
   if (!boten.length) errors.push('Voeg eerst boten toe (tab ② Boten).');
   if (zeilers.length<boten.length) errors.push('Te weinig Zeilers (Z): '+zeilers.length+' beschikbaar, '+boten.length+' nodig.');
-  // Medisch alleen verplicht op boten MET kinderen — wordt later gecontroleerd
   mKoppelingen.forEach(function(mk){
     var med=vind(volwassenen,mk.medischId);
     if (!med||med.boerderij||med.buitenland||med.philippine||med.cat!=='M'){
@@ -683,204 +684,192 @@ function genereer() {
     return;
   }
 
-  // Initialiseer boten
-  var ib=boten.map(function(b){return {id:b.id,naam:b.naam,min:b.min,max:b.max,origMax:b.max,effectiefMax:b.max,personen:[]};});
-
-  function herbereken(boot) {
-    var mvCount=boot.personen.filter(function(p){return p.mv;}).length;
-    boot.effectiefMax=boot.origMax-mvCount;
-  }
-
-  // Stap 1: Zeilers
-  var zS=shuffle(zeilers);
-  ib.forEach(function(b,i){b.personen.push(zS[i]);});
-
-  // Stap 2: Medisch-koppelingen bepalen welke M op welke boot
-  var medischNaarBootIdx={};
-  mKoppelingen.forEach(function(mk){
-    if (!medischNaarBootIdx.hasOwnProperty(mk.medischId)){
-      // Kies boot met minste M-toewijzingen
-      var minIdx=0, minCount=9999;
-      ib.forEach(function(b,idx){
-        var n=Object.keys(medischNaarBootIdx).filter(function(mid){return medischNaarBootIdx[mid]===idx;}).length;
-        if (n<minCount){minCount=n;minIdx=idx;}
-      });
-      medischNaarBootIdx[mk.medischId]=minIdx;
-    }
-  });
-
-  // Zet gekoppelde M op hun boot
-  var gebruiktM={};
-  Object.keys(medischNaarBootIdx).forEach(function(mId){
-    var persoon=vind(medisch,mId);
-    if (persoon&&!gebruiktM[mId]){
-      ib[medischNaarBootIdx[mId]].personen.push(persoon);
-      gebruiktM[mId]=true;
-    }
-  });
-
-  // Resterende M: alleen op boten die al een kind hebben óf waar een kind-koppeling naar verwijst
-  // We doen dit na de kindplaatsing — zie stap 3b
-
-  // Stap 3: Gekoppelde kinderen aan M plaatsen (harde eis)
-  var geplaatsteK={};
-  mKoppelingen.forEach(function(mk){
-    var kind=vind(beschikK,mk.kindId);
-    var bootIdx=medischNaarBootIdx[mk.medischId];
-    if (kind&&bootIdx!==undefined){
-      ib[bootIdx].personen.push(kind);
-      herbereken(ib[bootIdx]);
-      geplaatsteK[kind.id]=true;
-    }
-  });
-
-  // Stap 3b: Wijs resterende M toe — alleen aan boten die al een kind hebben
-  var mRest=shuffle(medisch.filter(function(v){return !gebruiktM[v.id];}));
-  var mi=0;
-  ib.forEach(function(b){
-    var heeftKind=b.personen.some(function(p){return p.geslacht!==undefined;});
-    var heeftM=b.personen.some(function(p){return p.cat==='M';});
-    if (heeftKind&&!heeftM){
-      if (mRest[mi]){b.personen.push(mRest[mi]);gebruiktM[mRest[mi].id]=true;mi++;}
-    }
-  });
-
-  // Stap 4: Voorkeurskoppelingen kinderen
-  var natGewicht = parseInt(document.getElementById('natSlider').value) || 0;
-
-  var vrijeK=shuffle(beschikK.filter(function(k){return !geplaatsteK[k.id];}));
-  var inGroep={};
-  var groepen=[];
-
-  // Voorkeurskoppelingen kinderen
-  kKoppelingen.forEach(function(kk){
-    var groep=kk.ids.map(function(id){return vind(vrijeK,id);}).filter(function(k){return k&&!inGroep[k.id];});
-    if (groep.length>=2){
-      groep.forEach(function(k){inGroep[k.id]=true;});
-      groepen.push({leden:groep,prioriteit:100});
-    }
-  });
-
-  // Nationaliteitsgroepen (op basis van schuifregelaar)
-  if (natGewicht > 0) {
-    var natGroepen = {};
-    vrijeK.forEach(function(k){
-      if (!inGroep[k.id] && k.nationaliteit) {
+  // ── SCORE FUNCTIE: lager = beter ──
+  function scorePoging(ib, warn) {
+    var score = warn.length * 100;
+    // Nationaliteit: tel hoeveel nat-groepen gesplitst zijn
+    if (natGewicht > 0) {
+      var natGroepen = {};
+      beschikK.forEach(function(k){
+        if (!k.nationaliteit) return;
         var nat = k.nationaliteit.toLowerCase().trim();
         if (!natGroepen[nat]) natGroepen[nat] = [];
-        natGroepen[nat].push(k);
-      }
-    });
-    Object.keys(natGroepen).forEach(function(nat){
-      var groep = natGroepen[nat];
-      if (groep.length >= 2) {
-        if (natGewicht >= 80) {
-          // Harde eis: altijd samen
-          groep.forEach(function(k){inGroep[k.id]=true;});
-          groepen.push({leden:groep,prioriteit:natGewicht});
-        } else {
-          // Voorkeur: probeer samen, splits als nodig
-          groepen.push({leden:groep,prioriteit:natGewicht});
-          groep.forEach(function(k){inGroep[k.id]=true;});
-        }
-      }
-    });
+        var bootIdx = -1;
+        ib.forEach(function(b,i){ if (b.personen.some(function(p){return p.id===k.id;})) bootIdx=i; });
+        natGroepen[nat].push(bootIdx);
+      });
+      Object.keys(natGroepen).forEach(function(nat){
+        var boots = natGroepen[nat];
+        var uniek = boots.filter(function(v,i,a){return a.indexOf(v)===i;}).length;
+        score += (uniek - 1) * natGewicht; // gespreide nat-groep kost punten
+      });
+    }
+    return score;
   }
 
-  var enkelen=vrijeK.filter(function(k){return !inGroep[k.id];});
+  // ── ÉÉN POGING ──
+  function eenPoging() {
+    var ib=boten.map(function(b){return {id:b.id,naam:b.naam,min:b.min,max:b.max,origMax:b.max,effectiefMax:b.max,personen:[]};});
+    var warn=[];
 
-  // Helper: mag persoon p op boot b? (ruzie-check)
-  function magOpBoot(p, b) {
-    return rKoppelingen.every(function(r){
-      if (r.ids.indexOf(p.id)===-1) return true; // p niet in dit conflict
-      var anderKindId = r.ids[0]===p.id ? r.ids[1] : r.ids[0];
-      return !b.personen.some(function(q){return q.id===anderKindId;});
-    });
-  }
-
-  // Groepen plaatsen (gesorteerd op prioriteit: hoog eerst)
-  groepen.sort(function(a,b){return b.prioriteit-a.prioriteit;});
-  var noodEnkelen=[];
-  groepen.forEach(function(groepObj){
-    var groep=groepObj.leden;
-    var opties=ib.filter(function(b){return (b.effectiefMax-b.personen.length)>=groep.length;});
-    opties.sort(function(a,b){return a.personen.length-b.personen.length;});
-    if (opties.length){
-      groep.forEach(function(k){opties[0].personen.push(k);herbereken(opties[0]);});
-    } else if (groepObj.prioriteit < 80) {
-      // Voorkeur niet haalbaar: individueel plaatsen
-      groep.forEach(function(k){noodEnkelen.push(k);});
-      if (natGewicht > 0 && natGewicht < 80) {
-        warn.push('🌍 Nationaliteitsgroep kon niet volledig samen geplaatst worden.');
-      }
-    } else {
-      // Harde eis ook niet haalbaar: splits noodgedwongen
-      groep.forEach(function(k){noodEnkelen.push(k);});
-      warn.push('🌍 Nationaliteitsgroep kon niet samen geplaatst worden (onvoldoende ruimte).');
+    function herbereken(boot){
+      boot.effectiefMax=boot.origMax-boot.personen.filter(function(p){return p.mv;}).length;
     }
-  });
-
-  // Stap 5: Resterende personen verdelen (overigen + extra Z + resterende M als overschot)
-  var rest=shuffle(enkelen.concat(noodEnkelen)
-    .concat(shuffle(overigen))
-    .concat(zS.slice(boten.length)));
-
-  var warn=[];
-  rest.forEach(function(p){
-    var opties=ib.filter(function(b){return b.personen.length<b.effectiefMax && magOpBoot(p,b);});
-    if (!opties.length) opties=ib.filter(function(b){return b.personen.length<b.effectiefMax;}); // noodgeval: negeer ruzie
-    opties.sort(function(a,b){return a.personen.length-b.personen.length;});
-    if (opties.length){opties[0].personen.push(p);herbereken(opties[0]);}
-    else warn.push(escHtml(p.naam)+' kon niet worden ingedeeld (boten vol).');
-  });
-
-  // Stap 5b: Nu alle kinderen geplaatst zijn — wijs nogmaals M toe aan boten met kind maar zonder M
-  ib.forEach(function(b){
-    var heeftKind=b.personen.some(function(p){return p.geslacht!==undefined;});
-    var heeftM=b.personen.some(function(p){return p.cat==='M';});
-    if (heeftKind&&!heeftM){
-      if (mRest[mi]){b.personen.push(mRest[mi]);gebruiktM[mRest[mi].id]=true;mi++;}
-      else warn.push('Boot "'+escHtml(b.naam)+'" heeft kinderen maar geen Medisch-persoon beschikbaar.');
+    function magOpBoot(p,b){
+      return rKoppelingen.every(function(r){
+        if (r.ids.indexOf(p.id)===-1) return true;
+        var anderId=r.ids[0]===p.id?r.ids[1]:r.ids[0];
+        return !b.personen.some(function(q){return q.id===anderId;});
+      });
     }
-  });
 
-  // Resterende M die nergens nodig zijn: gewoon verdelen over andere boten
-  mRest.slice(mi).forEach(function(v){
-    var opties=ib.filter(function(b){return b.personen.length<b.effectiefMax;});
-    opties.sort(function(a,b){return a.personen.length-b.personen.length;});
-    if (opties.length){opties[0].personen.push(v);}
-  });
+    // Stap 1: Zeilers
+    var zS=shuffle(zeilers);
+    ib.forEach(function(b,i){b.personen.push(zS[i]);});
 
-  ib.forEach(function(b){
-    if (b.personen.length<b.min) warn.push('Boot "'+escHtml(b.naam)+'" heeft slechts '+b.personen.length+' personen (min. '+b.min+').');
-    // Controleer ruzie-conflicten
-    rKoppelingen.forEach(function(r){
-      var k1=b.personen.some(function(p){return p.id===r.ids[0];});
-      var k2=b.personen.some(function(p){return p.id===r.ids[1];});
-      if (k1&&k2){
-        var n1=vind(kinderen,r.ids[0]); var n2=vind(kinderen,r.ids[1]);
-        warn.push('⚠ Conflict: '+(n1?escHtml(n1.naam):'?')+' en '+(n2?escHtml(n2.naam):'?')+' zitten samen op boot "'+escHtml(b.naam)+'" (geen andere optie gevonden).');
+    // Stap 2: Medisch-koppelingen
+    var medischNaarBootIdx={};
+    mKoppelingen.forEach(function(mk){
+      if (!medischNaarBootIdx.hasOwnProperty(mk.medischId)){
+        var minIdx=0,minCount=9999;
+        ib.forEach(function(b,idx){
+          var n=Object.keys(medischNaarBootIdx).filter(function(mid){return medischNaarBootIdx[mid]===idx;}).length;
+          if(n<minCount){minCount=n;minIdx=idx;}
+        });
+        medischNaarBootIdx[mk.medischId]=minIdx;
       }
     });
-  });
+    var gebruiktM={};
+    Object.keys(medischNaarBootIdx).forEach(function(mId){
+      var persoon=vind(medisch,mId);
+      if(persoon&&!gebruiktM[mId]){ib[medischNaarBootIdx[mId]].personen.push(persoon);gebruiktM[mId]=true;}
+    });
 
-  // Stap 6: Personen-koppelingen controleren (laagste prioriteit — alleen melding)
-  pKoppelingen.forEach(function(pk){
-    var p1=getPersoonByRef(pk.refs[0]);
-    var p2=getPersoonByRef(pk.refs[1]);
-    if (!p1||!p2) return;
-    var boot1=null, boot2=null;
+    // Stap 3: Gekoppelde kinderen aan M
+    var geplaatsteK={};
+    mKoppelingen.forEach(function(mk){
+      var kind=vind(beschikK,mk.kindId);
+      var bootIdx=medischNaarBootIdx[mk.medischId];
+      if(kind&&bootIdx!==undefined){ib[bootIdx].personen.push(kind);herbereken(ib[bootIdx]);geplaatsteK[kind.id]=true;}
+    });
+
+    // Stap 3b: M toewijzen aan boten met kinderen
+    var mRest=shuffle(medisch.filter(function(v){return !gebruiktM[v.id];}));
+    var mi=0;
     ib.forEach(function(b){
-      if (b.personen.some(function(p){return p.id===p1.id;})) boot1=b;
-      if (b.personen.some(function(p){return p.id===p2.id;})) boot2=b;
+      var heeftKind=b.personen.some(function(p){return p.geslacht!==undefined;});
+      var heeftM=b.personen.some(function(p){return p.cat==='M';});
+      if(heeftKind&&!heeftM&&mRest[mi]){b.personen.push(mRest[mi]);gebruiktM[mRest[mi].id]=true;mi++;}
     });
-    if (boot1&&boot2&&boot1!==boot2){
-      warn.push('🤝 Koppeling niet gelukt: '+escHtml(p1.naam)+' en '+escHtml(p2.naam)+' zitten op verschillende boten.');
+
+    // Stap 4: Groepen (voorkeur + nationaliteit)
+    var vrijeK=shuffle(beschikK.filter(function(k){return !geplaatsteK[k.id];}));
+    var inGroep={};
+    var groepen=[];
+
+    kKoppelingen.forEach(function(kk){
+      var groep=kk.ids.map(function(id){return vind(vrijeK,id);}).filter(function(k){return k&&!inGroep[k.id];});
+      if(groep.length>=2){groep.forEach(function(k){inGroep[k.id]=true;});groepen.push({leden:groep,prioriteit:100});}
+    });
+
+    if(natGewicht>0){
+      var natG={};
+      vrijeK.forEach(function(k){
+        if(!inGroep[k.id]&&k.nationaliteit){
+          var nat=k.nationaliteit.toLowerCase().trim();
+          if(!natG[nat])natG[nat]=[];
+          natG[nat].push(k);
+        }
+      });
+      Object.keys(natG).forEach(function(nat){
+        var groep=natG[nat];
+        if(groep.length>=2){
+          groep.forEach(function(k){inGroep[k.id]=true;});
+          groepen.push({leden:groep,prioriteit:natGewicht});
+        }
+      });
     }
-  });
+
+    var enkelen=vrijeK.filter(function(k){return !inGroep[k.id];});
+
+    groepen.sort(function(a,b){return b.prioriteit-a.prioriteit;});
+    var noodEnkelen=[];
+    groepen.forEach(function(groepObj){
+      var groep=groepObj.leden;
+      var opties=ib.filter(function(b){return (b.effectiefMax-b.personen.length)>=groep.length;});
+      opties.sort(function(a,b){return a.personen.length-b.personen.length;});
+      if(opties.length){
+        groep.forEach(function(k){opties[0].personen.push(k);herbereken(opties[0]);});
+      } else {
+        groep.forEach(function(k){noodEnkelen.push(k);});
+      }
+    });
+
+    // Stap 5: Rest verdelen
+    var rest=shuffle(enkelen.concat(noodEnkelen).concat(shuffle(overigen)).concat(zS.slice(boten.length)));
+    rest.forEach(function(p){
+      var opties=ib.filter(function(b){return b.personen.length<b.effectiefMax&&magOpBoot(p,b);});
+      if(!opties.length) opties=ib.filter(function(b){return b.personen.length<b.effectiefMax;});
+      opties.sort(function(a,b){return a.personen.length-b.personen.length;});
+      if(opties.length){opties[0].personen.push(p);herbereken(opties[0]);}
+      else warn.push(escHtml(p.naam)+' kon niet worden ingedeeld (boten vol).');
+    });
+
+    // Stap 5b: M nogmaals controleren na plaatsing kinderen
+    ib.forEach(function(b){
+      var heeftKind=b.personen.some(function(p){return p.geslacht!==undefined;});
+      var heeftM=b.personen.some(function(p){return p.cat==='M';});
+      if(heeftKind&&!heeftM){
+        if(mRest[mi]){b.personen.push(mRest[mi]);gebruiktM[mRest[mi].id]=true;mi++;}
+        else warn.push('Boot "'+escHtml(b.naam)+'" heeft kinderen maar geen Medisch-persoon beschikbaar.');
+      }
+    });
+    mRest.slice(mi).forEach(function(v){
+      var opties=ib.filter(function(b){return b.personen.length<b.effectiefMax;});
+      opties.sort(function(a,b){return a.personen.length-b.personen.length;});
+      if(opties.length) opties[0].personen.push(v);
+    });
+
+    // Stap 6: Waarschuwingen
+    ib.forEach(function(b){
+      if(b.personen.length<b.min) warn.push('Boot "'+escHtml(b.naam)+'" heeft slechts '+b.personen.length+' personen (min. '+b.min+').');
+      rKoppelingen.forEach(function(r){
+        var k1=b.personen.some(function(p){return p.id===r.ids[0];});
+        var k2=b.personen.some(function(p){return p.id===r.ids[1];});
+        if(k1&&k2){
+          var n1=vind(kinderen,r.ids[0]);var n2=vind(kinderen,r.ids[1]);
+          warn.push('⚠ Conflict: '+(n1?escHtml(n1.naam):'?')+' en '+(n2?escHtml(n2.naam):'?')+' zitten samen op boot "'+escHtml(b.naam)+'".');
+        }
+      });
+    });
+    pKoppelingen.forEach(function(pk){
+      var p1=getPersoonByRef(pk.refs[0]);var p2=getPersoonByRef(pk.refs[1]);
+      if(!p1||!p2) return;
+      var boot1=null,boot2=null;
+      ib.forEach(function(b){
+        if(b.personen.some(function(p){return p.id===p1.id;})) boot1=b;
+        if(b.personen.some(function(p){return p.id===p2.id;})) boot2=b;
+      });
+      if(boot1&&boot2&&boot1!==boot2)
+        warn.push('🤝 Koppeling niet gelukt: '+escHtml(p1.naam)+' en '+escHtml(p2.naam)+' zitten op verschillende boten.');
+    });
+
+    return {ib:ib, warn:warn, score:scorePoging(ib,warn)};
+  }
+
+  // ── RETRY LOOP: max 100 pogingen, kies beste ──
+  var beste=null;
+  var MAX=100;
+  for(var poging=0;poging<MAX;poging++){
+    var resultaat=eenPoging();
+    if(!beste||resultaat.score<beste.score) beste=resultaat;
+    if(beste.score===0) break; // perfecte oplossing gevonden
+  }
+
+  var ib=beste.ib, warn=beste.warn;
 
   // Render
-  if (warn.length){
+  if(warn.length){
     msgsEl.innerHTML=warn.map(function(w){return '<div class="msg msg-warn">⚠ '+w+'</div>';}).join('');
   } else {
     msgsEl.innerHTML='<div class="msg msg-ok">✅ Indeling geslaagd — alle regels voldaan.</div>';
@@ -894,13 +883,12 @@ function genereer() {
     +'</div><div class="boten-grid" id="botenGrid"></div>';
 
   var grid=document.getElementById('botenGrid');
-  if (philippine.length) grid.innerHTML+=bootCard('⚓ Philippine',philippine,true,0,9999,9999);
+  if(philippine.length) grid.innerHTML+=bootCard('⚓ Philippine',philippine,true,0,9999,9999);
   ib.forEach(function(b){grid.innerHTML+=bootCard('⛵ '+b.naam,b.personen,false,b.min,b.effectiefMax,b.origMax);});
-  if (boerderij.length) grid.innerHTML+=locatieCard('🏡 Boerderij',boerderij,'#e8d5b0');
-  if (buitenland.length) grid.innerHTML+=locatieCard('🌍 Buitenland',buitenland,'#5ec8d0');
+  if(boerderij.length) grid.innerHTML+=locatieCard('🏡 Boerderij',boerderij,'#e8d5b0');
+  if(buitenland.length) grid.innerHTML+=locatieCard('🌍 Buitenland',buitenland,'#5ec8d0');
 
-  // Bewaar voor export
-  _lastIndeling = { boten: ib, philippine: philippine, boerderij: boerderij, buitenland: buitenland };
+  _lastIndeling={boten:ib,philippine:philippine,boerderij:boerderij,buitenland:buitenland};
 }
 
 function stat(v,l){return '<div><div class="stat-val">'+v+'</div><div class="stat-lbl">'+l+'</div></div>';}
