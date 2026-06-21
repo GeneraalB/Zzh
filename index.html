@@ -824,54 +824,68 @@ function genereer() {
         }
       });
 
+      // Stap A: maak per nationaliteit een lijst van duo's
+      var alleDuosPerNat={}; // nat -> [[k,k],[k,k],...]
       Object.keys(natG).forEach(function(nat){
         var groep=natG[nat];
-        if(groep.length<2) return; // enkel kind van deze nat → vrij laten
-
-        // Markeer als verwerkt
+        if(groep.length<2) return; // enkel kind → vrij laten
         groep.forEach(function(k){inGroep[k.id]=true;});
-
-        // Maak duo's — bij oneven wordt laatste duo een trio
         var duos=[];
         var kopie=groep.slice();
         while(kopie.length>0){
           if(kopie.length===1){
-            // Voeg toe aan laatste duo → trio
             if(duos.length>0) duos[duos.length-1].push(kopie.shift());
-            else noodEnkelen.push(kopie.shift()); // geen vorig duo (zou niet mogen)
+            else noodEnkelen.push(kopie.shift());
           } else {
-            duos.push([kopie.shift(), kopie.shift()]);
+            duos.push([kopie.shift(),kopie.shift()]);
           }
         }
+        alleDuosPerNat[nat]=duos;
+      });
 
-        // Plaats elk duo op een andere boot
-        // Sorteer: boten met minste kinderen van deze nat eerst, dan meeste ruimte
-        duos.forEach(function(duo){
-          var opties=ib.filter(function(b){return ruimte(b)>=duo.length;});
-          opties.sort(function(a,b){
-            var aNat=a.personen.filter(function(p){return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;}).length;
-            var bNat=b.personen.filter(function(p){return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;}).length;
-            if(aNat!==bNat) return aNat-bNat; // minste van deze nat → eerst
-            return ruimte(b)-ruimte(a);        // meeste ruimte → eerst
-          });
-          if(opties.length){
-            var doel=opties[0];
-            duo.forEach(function(k){ if(!plaats(k,doel)) noodEnkelen.push(k); });
-          } else {
-            // Geen boot met ruimte voor heel duo — probeer 1 voor 1 bij andere van zelfde nat
-            duo.forEach(function(k){
-              var natOpt=ib.filter(function(b){
-                return ruimte(b)>0&&b.personen.some(function(p){
-                  return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;
-                });
-              });
-              natOpt.sort(sortMeestRuimte);
-              var ok=false;
-              for(var ni=0;ni<natOpt.length;ni++){ if(plaats(k,natOpt[ni])){ok=true;break;} }
-              if(!ok) noodEnkelen.push(k);
-            });
-          }
+      // Stap B: interleave duo's van verschillende nationaliteiten
+      // Zodat boten gemengd worden: oek-duo, nl-duo, oek-duo, nl-duo...
+      // Resultaat: geordende lijst van duo's afwisselend per nat
+      var geordendeDuos=[];
+      var natKeys=Object.keys(alleDuosPerNat);
+      var maxDuos=0;
+      natKeys.forEach(function(n){ if(alleDuosPerNat[n].length>maxDuos) maxDuos=alleDuosPerNat[n].length; });
+      for(var ronde=0;ronde<maxDuos;ronde++){
+        natKeys.forEach(function(nat){
+          if(alleDuosPerNat[nat][ronde]) geordendeDuos.push({nat:nat,duo:alleDuosPerNat[nat][ronde]});
         });
+      }
+
+      // Stap C: plaats elk duo op boot met minste duo's van dezelfde nat én meeste ruimte
+      geordendeDuos.forEach(function(item){
+        var nat=item.nat;
+        var duo=item.duo;
+        var opties=ib.filter(function(b){return ruimte(b)>=duo.length;});
+        opties.sort(function(a,b){
+          // Primair: minste kinderen van DEZELFDE nat op die boot
+          var aNat=a.personen.filter(function(p){return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;}).length;
+          var bNat=b.personen.filter(function(p){return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;}).length;
+          if(aNat!==bNat) return aNat-bNat;
+          // Secundair: meeste ruimte
+          return ruimte(b)-ruimte(a);
+        });
+        if(opties.length){
+          var doel=opties[0];
+          duo.forEach(function(k){ if(!plaats(k,doel)) noodEnkelen.push(k); });
+        } else {
+          // Geen boot met ruimte voor duo — individueel bij andere van zelfde nat
+          duo.forEach(function(k){
+            var natOpt=ib.filter(function(b){
+              return ruimte(b)>0&&b.personen.some(function(p){
+                return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;
+              });
+            });
+            natOpt.sort(sortMeestRuimte);
+            var ok=false;
+            for(var ni=0;ni<natOpt.length;ni++){ if(plaats(k,natOpt[ni])){ok=true;break;} }
+            if(!ok) noodEnkelen.push(k);
+          });
+        }
       });
     }
 
