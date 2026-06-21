@@ -819,42 +819,83 @@ function genereer() {
     var noodEnkelen=[];
     groepen.forEach(function(groepObj){
       var groep=groepObj.leden;
+      // Zoek boot met genoeg ruimte voor de hele groep
       var opties=ib.filter(function(b){return (b.effectiefMax-b.personen.length)>=groep.length;});
       opties.sort(function(a,b){return a.personen.length-b.personen.length;});
       if(opties.length){
-        groep.forEach(function(k){opties[0].personen.push(k);herbereken(opties[0]);});
+        // Hele groep past — controleer nogmaals capaciteit per persoon
+        var doel=opties[0];
+        groep.forEach(function(k){
+          if(doel.personen.length<doel.effectiefMax){
+            doel.personen.push(k);herbereken(doel);
+          } else {
+            noodEnkelen.push(k); // boot vol geworden door mv-herberekening
+          }
+        });
       } else {
-        groep.forEach(function(k){noodEnkelen.push(k);});
+        // Groep past niet in één boot: plaats in duo's verspreid, nooit solo
+        var resterend=groep.slice();
+        while(resterend.length>=2){
+          var duo=resterend.splice(0,2);
+          var duoOpties=ib.filter(function(b){return (b.effectiefMax-b.personen.length)>=2;});
+          duoOpties.sort(function(a,b){return a.personen.length-b.personen.length;});
+          if(duoOpties.length){
+            duo.forEach(function(k){duoOpties[0].personen.push(k);herbereken(duoOpties[0]);});
+          } else {
+            duo.forEach(function(k){noodEnkelen.push(k);});
+          }
+        }
+        // Enkel overgebleven kind: toevoegen aan een boot met dezelfde nat als er ruimte is
+        if(resterend.length===1){
+          var soloK=resterend[0];
+          var natOpties=ib.filter(function(b){
+            return b.personen.length<b.effectiefMax
+              && b.personen.some(function(p){return p.nationaliteit&&p.nationaliteit.toLowerCase()===groepObj.nat;});
+          });
+          natOpties.sort(function(a,b){return a.personen.length-b.personen.length;});
+          if(natOpties.length){natOpties[0].personen.push(soloK);herbereken(natOpties[0]);}
+          else noodEnkelen.push(soloK);
+        }
       }
     });
 
-    // Stap 5: Rest verdelen
+    // Stap 5: Rest verdelen — ALTIJD capaciteit controleren
     var rest=shuffle(enkelen.concat(noodEnkelen).concat(shuffle(overigen)).concat(zS.slice(boten.length)));
     rest.forEach(function(p){
       var opties=ib.filter(function(b){return b.personen.length<b.effectiefMax&&magOpBoot(p,b);});
-      if(!opties.length) opties=ib.filter(function(b){return b.personen.length<b.effectiefMax;});
+      if(!opties.length) opties=ib.filter(function(b){return b.personen.length<b.effectiefMax;}); // ruzie negeren als noodgeval
       opties.sort(function(a,b){return a.personen.length-b.personen.length;});
       if(opties.length){opties[0].personen.push(p);herbereken(opties[0]);}
       else warn.push(escHtml(p.naam)+' kon niet worden ingedeeld (boten vol).');
     });
 
-    // Stap 5b: M nogmaals controleren na plaatsing kinderen
+    // Stap 5b: M nogmaals controleren na plaatsing kinderen — MET capaciteitscheck
     ib.forEach(function(b){
       var heeftKind=b.personen.some(function(p){return p.geslacht!==undefined;});
       var heeftM=b.personen.some(function(p){return p.cat==='M';});
       if(heeftKind&&!heeftM){
-        if(mRest[mi]){b.personen.push(mRest[mi]);gebruiktM[mRest[mi].id]=true;mi++;}
-        else warn.push('Boot "'+escHtml(b.naam)+'" heeft kinderen maar geen Medisch-persoon beschikbaar.');
+        if(mRest[mi]&&b.personen.length<b.effectiefMax){
+          b.personen.push(mRest[mi]);gebruiktM[mRest[mi].id]=true;mi++;
+        } else if(mRest[mi]&&b.personen.length>=b.effectiefMax){
+          warn.push('Boot "'+escHtml(b.naam)+'" heeft kinderen maar is vol — Medisch-persoon kon niet worden toegevoegd.');
+        } else {
+          warn.push('Boot "'+escHtml(b.naam)+'" heeft kinderen maar geen Medisch-persoon beschikbaar.');
+        }
       }
     });
+
+    // Resterende M verdelen — MET capaciteitscheck
     mRest.slice(mi).forEach(function(v){
       var opties=ib.filter(function(b){return b.personen.length<b.effectiefMax;});
       opties.sort(function(a,b){return a.personen.length-b.personen.length;});
       if(opties.length) opties[0].personen.push(v);
+      // geen waarschuwing: resterende M zijn niet verplicht
     });
 
-    // Stap 6: Waarschuwingen
+    // Stap 6: Capaciteitscheck als vangnet — waarschuw als een boot toch overvol is
     ib.forEach(function(b){
+      if(b.personen.length>b.effectiefMax)
+        warn.push('⛔ Boot "'+escHtml(b.naam)+'" heeft '+b.personen.length+' personen maar max is '+b.effectiefMax+' — controleer de indeling!');
       if(b.personen.length<b.min) warn.push('Boot "'+escHtml(b.naam)+'" heeft slechts '+b.personen.length+' personen (min. '+b.min+').');
       rKoppelingen.forEach(function(r){
         var k1=b.personen.some(function(p){return p.id===r.ids[0];});
