@@ -353,7 +353,7 @@ select option { background: #081526; }
     </div>
     <div class="btn-row">
       <button class="btn-gold big" id="btnGen" onclick="genereer()">🎲 Genereer indeling</button>
-      <button id="btnExport" onclick="exportXlsx()" style="display:none;background:transparent;border:1px solid #51cf66;color:#51cf66;padding:9px 16px;border-radius:4px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">⬇ Download Excel</button>
+      <button id="btnExport" onclick="exportXlsx()" style="display:none;background:transparent;border:1px solid #51cf66;color:#51cf66;padding:9px 16px;border-radius:4px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">⬇ Download CSV</button>
       <span id="rondeInfo" style="font-size:12px;color:#3a6080"></span>
     </div>
     <div id="indelingMsgs"></div>
@@ -1076,167 +1076,61 @@ function exportXlsx() {
   if (!_lastIndeling) { alert('Genereer eerst een indeling.'); return; }
   var ind = _lastIndeling;
 
-  // Verwijder emoji's en pictogrammen uit tekst voor Excel
-  function stripEmoji(s) {
+  function schoon(s) {
+    // Verwijder emoji's, pictogrammen en andere niet-teksttekens
     return String(s||'')
       .replace(/[\u{1F000}-\u{1FFFF}]/gu,'')
-      .replace(/[\u2600-\u27BF]/g,'')
+      .replace(/[\u{2600}-\u{27BF}]/gu,'')
       .replace(/[\u{1F300}-\u{1F9FF}]/gu,'')
-      .replace(/[\u{2700}-\u{27BF}]/gu,'')
+      .replace(/"/g, "'")  // dubbele aanhalingstekens vervangen
       .trim();
   }
 
-  // Bouw rijen — stripEmoji op alle velden
-  var rijen = [['Boot/Locatie','Naam','Type','Geslacht/Cat','Nationaliteit','m+']];
+  function csvRij(velden) {
+    return velden.map(function(v){
+      var s = schoon(String(v||''));
+      // Omsluit met aanhalingstekens als het komma's of newlines bevat
+      if(s.indexOf(',')!==-1||s.indexOf('\n')!==-1||s.indexOf('"')!==-1){
+        return '"'+s+'"';
+      }
+      return s;
+    }).join(',');
+  }
+
+  // Bouw CSV
+  var regels = [];
+  regels.push(csvRij(['Boot/Locatie','Naam','Type','Geslacht/Cat','Nationaliteit','m+']));
+
   ind.boten.forEach(function(b) {
-    var bootnaam = stripEmoji(b.naam);
+    var bootnaam = schoon(b.naam);
     b.personen.forEach(function(p) {
-      rijen.push([bootnaam, stripEmoji(p.naam), p.cat?'Volwassene':'Kind', p.cat||p.geslacht, stripEmoji(p.nationaliteit||''), p.mv?'m+':'']);
+      regels.push(csvRij([bootnaam, p.naam, p.cat?'Volwassene':'Kind', p.cat||p.geslacht, p.nationaliteit||'', p.mv?'m+':'']));
     });
   });
   ind.philippine.forEach(function(p) {
-    rijen.push(['Philippine', stripEmoji(p.naam), p.cat?'Volwassene':'Kind', p.cat||p.geslacht||'', stripEmoji(p.nationaliteit||''), p.mv?'m+':'']);
+    regels.push(csvRij(['Philippine', p.naam, p.cat?'Volwassene':'Kind', p.cat||p.geslacht||'', p.nationaliteit||'', p.mv?'m+':'']));
   });
   ind.boerderij.forEach(function(p) {
     var k=!p.cat;
-    rijen.push(['Boerderij', stripEmoji(p.naam), k?'Kind':'Volwassene', k?p.geslacht:p.cat, stripEmoji(p.nationaliteit||''), p.mv?'m+':'']);
+    regels.push(csvRij(['Boerderij', p.naam, k?'Kind':'Volwassene', k?p.geslacht:p.cat, p.nationaliteit||'', p.mv?'m+':'']));
   });
   ind.buitenland.forEach(function(p) {
     var k=!p.cat;
-    rijen.push(['Buitenland', stripEmoji(p.naam), k?'Kind':'Volwassene', k?p.geslacht:p.cat, stripEmoji(p.nationaliteit||''), p.mv?'m+':'']);
+    regels.push(csvRij(['Buitenland', p.naam, k?'Kind':'Volwassene', k?p.geslacht:p.cat, p.nationaliteit||'', p.mv?'m+':'']));
   });
 
-  // Bouw echte xlsx via Office Open XML + ZIP
-  var sheetXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    + '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-    + '<sheetData>';
-
-  rijen.forEach(function(rij, ri) {
-    sheetXml += '<row r="'+(ri+1)+'">';
-    rij.forEach(function(cel, ci) {
-      var col = String.fromCharCode(65+ci);
-      var addr = col+(ri+1);
-      sheetXml += '<c r="'+addr+'" t="inlineStr"><is><t>'+escXml(String(cel))+'</t></is></c>';
-    });
-    sheetXml += '</row>';
-  });
-  sheetXml += '</sheetData></worksheet>';
-
-  var wbXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
-    + ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-    + '<sheets><sheet name="Ronde '+rondeNr+'" sheetId="1" r:id="rId1"/></sheets>'
-    + '</workbook>';
-
-  var relsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
-    + '</Relationships>';
-
-  var appRelsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-    + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
-    + '</Relationships>';
-
-  var contentTypes = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-    + '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-    + '<Default Extension="xml" ContentType="application/xml"/>'
-    + '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-    + '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
-    + '</Types>';
-
-  // Bouw ZIP handmatig (geen externe library nodig)
-  var files = {
-    '[Content_Types].xml': contentTypes,
-    '_rels/.rels': appRelsXml,
-    'xl/workbook.xml': wbXml,
-    'xl/_rels/workbook.xml.rels': relsXml,
-    'xl/worksheets/sheet1.xml': sheetXml
-  };
-
-  var zip = buildZip(files);
-  var blob = new Blob([zip], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  var csv = '\uFEFF' + regels.join('\r\n'); // BOM voor Excel UTF-8 herkenning
+  var blob = new Blob([csv], {type: 'text/csv;charset=utf-8'});
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
-  a.download = 'zomerzotheid-ronde' + rondeNr + '.xlsx';
+  a.download = 'zomerzotheid-ronde' + rondeNr + '.csv';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
-// Minimale ZIP-builder (geen externe library)
-function buildZip(files) {
-  var entries = [];
-  var centralDir = [];
-  var offset = 0;
-
-  function strToBytes(s) {
-    var b = new Uint8Array(s.length);
-    for (var i=0;i<s.length;i++) b[i]=s.charCodeAt(i)&0xff;
-    return b;
-  }
-  function crc32(data) {
-    var table = crc32.t || (crc32.t = (function(){
-      var t=new Uint32Array(256),n,c,k;
-      for(n=0;n<256;n++){c=n;for(k=0;k<8;k++)c=c&1?(0xEDB88320^(c>>>1)):c>>>1;t[n]=c;}
-      return t;
-    })());
-    var c=0xFFFFFFFF;
-    for(var i=0;i<data.length;i++) c=table[(c^data[i])&0xff]^(c>>>8);
-    return (c^0xFFFFFFFF)>>>0;
-  }
-  function u16(v){return [v&0xff,(v>>8)&0xff];}
-  function u32(v){return [v&0xff,(v>>8)&0xff,(v>>16)&0xff,(v>>24)&0xff];}
-  function concat(arrays) {
-    var len=0; arrays.forEach(function(a){len+=a.length;});
-    var out=new Uint8Array(len),pos=0;
-    arrays.forEach(function(a){out.set(a,pos);pos+=a.length;});
-    return out;
-  }
-
-  Object.keys(files).forEach(function(name) {
-    var data = strToBytes(files[name]);
-    var nameBytes = strToBytes(name);
-    var crc = crc32(data);
-    var localHeader = concat([
-      new Uint8Array([0x50,0x4b,0x03,0x04,0x14,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]),
-      new Uint8Array(u32(crc)),
-      new Uint8Array(u32(data.length)),
-      new Uint8Array(u32(data.length)),
-      new Uint8Array(u16(nameBytes.length)),
-      new Uint8Array([0x00,0x00]),
-      nameBytes
-    ]);
-    var centralEntry = concat([
-      new Uint8Array([0x50,0x4b,0x01,0x02,0x14,0x00,0x14,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]),
-      new Uint8Array(u32(crc)),
-      new Uint8Array(u32(data.length)),
-      new Uint8Array(u32(data.length)),
-      new Uint8Array(u16(nameBytes.length)),
-      new Uint8Array([0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]),
-      new Uint8Array(u32(offset)),
-      nameBytes
-    ]);
-    entries.push(concat([localHeader, data]));
-    centralDir.push(centralEntry);
-    offset += localHeader.length + data.length;
-  });
-
-  var cdSize = centralDir.reduce(function(s,e){return s+e.length;},0);
-  var eocd = concat([
-    new Uint8Array([0x50,0x4b,0x05,0x06,0x00,0x00,0x00,0x00]),
-    new Uint8Array(u16(entries.length)),
-    new Uint8Array(u16(entries.length)),
-    new Uint8Array(u32(cdSize)),
-    new Uint8Array(u32(offset)),
-    new Uint8Array([0x00,0x00])
-  ]);
-
-  return concat(entries.concat(centralDir).concat([eocd]));
-}
 
 // ── EXCEL / CSV IMPORT ───────────────────────────────────────────────────
 function isTruthy(v) {
