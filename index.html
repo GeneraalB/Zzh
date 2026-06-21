@@ -714,24 +714,46 @@ function genereer() {
     var warn=[];
 
     function herbereken(boot){
-      boot.effectiefMax=boot.origMax-boot.personen.filter(function(p){return p.mv;}).length;
+      var mvAantal=boot.personen.filter(function(p){return p.mv;}).length;
+      boot.effectiefMax=boot.origMax-mvAantal;
     }
+    function ruimte(b){ return b.effectiefMax-b.personen.length; }
     function magOpBoot(p,b){
       return rKoppelingen.every(function(r){
-        if (r.ids.indexOf(p.id)===-1) return true;
+        if(r.ids.indexOf(p.id)===-1) return true;
         var anderId=r.ids[0]===p.id?r.ids[1]:r.ids[0];
         return !b.personen.some(function(q){return q.id===anderId;});
       });
     }
 
+    // Centrale plaatsingsfunctie: ALTIJD capaciteitscheck
+    function plaatsPersoon(p,boot){
+      if(ruimte(boot)<=0) return false;
+      boot.personen.push(p);
+      herbereken(boot);
+      if(boot.personen.length>boot.effectiefMax){
+        boot.personen.pop();
+        herbereken(boot);
+        return false;
+      }
+      return true;
+    }
+    function kiesBoot(p,filterFn,sortFn){
+      var opties=ib.filter(filterFn||function(b){return ruimte(b)>0;});
+      if(sortFn) opties.sort(sortFn); else opties.sort(function(a,b){return ruimte(a)-ruimte(b);});
+      for(var i=0;i<opties.length;i++){ if(plaatsPersoon(p,opties[i])) return opties[i]; }
+      return null;
+    }
+
     // Stap 1: Zeilers
     var zS=shuffle(zeilers);
-    ib.forEach(function(b,i){b.personen.push(zS[i]);});
+    ib.forEach(function(b,i){ if(zS[i]) plaatsPersoon(zS[i],b); });
+    var extraZ=zS.slice(boten.length);
 
     // Stap 2: Medisch-koppelingen
     var medischNaarBootIdx={};
     mKoppelingen.forEach(function(mk){
-      if (!medischNaarBootIdx.hasOwnProperty(mk.medischId)){
+      if(!medischNaarBootIdx.hasOwnProperty(mk.medischId)){
         var minIdx=0,minCount=9999;
         ib.forEach(function(b,idx){
           var n=Object.keys(medischNaarBootIdx).filter(function(mid){return medischNaarBootIdx[mid]===idx;}).length;
@@ -743,7 +765,7 @@ function genereer() {
     var gebruiktM={};
     Object.keys(medischNaarBootIdx).forEach(function(mId){
       var persoon=vind(medisch,mId);
-      if(persoon&&!gebruiktM[mId]){ib[medischNaarBootIdx[mId]].personen.push(persoon);gebruiktM[mId]=true;}
+      if(persoon&&!gebruiktM[mId]){ if(plaatsPersoon(persoon,ib[medischNaarBootIdx[mId]])) gebruiktM[mId]=true; }
     });
 
     // Stap 3: Gekoppelde kinderen aan M
@@ -751,7 +773,10 @@ function genereer() {
     mKoppelingen.forEach(function(mk){
       var kind=vind(beschikK,mk.kindId);
       var bootIdx=medischNaarBootIdx[mk.medischId];
-      if(kind&&bootIdx!==undefined){ib[bootIdx].personen.push(kind);herbereken(ib[bootIdx]);geplaatsteK[kind.id]=true;}
+      if(kind&&bootIdx!==undefined){
+        if(plaatsPersoon(kind,ib[bootIdx])) geplaatsteK[kind.id]=true;
+        else warn.push(escHtml(kind.naam)+' kon niet op boot van gekoppelde Medisch (boot vol).');
+      }
     });
 
     // Stap 3b: M toewijzen aan boten met kinderen
@@ -760,7 +785,7 @@ function genereer() {
     ib.forEach(function(b){
       var heeftKind=b.personen.some(function(p){return p.geslacht!==undefined;});
       var heeftM=b.personen.some(function(p){return p.cat==='M';});
-      if(heeftKind&&!heeftM&&mRest[mi]){b.personen.push(mRest[mi]);gebruiktM[mRest[mi].id]=true;mi++;}
+      if(heeftKind&&!heeftM&&mRest[mi]){ if(plaatsPersoon(mRest[mi],b)){gebruiktM[mRest[mi].id]=true;mi++;} }
     });
 
     // Stap 4: Groepen (voorkeur + nationaliteit)
@@ -768,13 +793,11 @@ function genereer() {
     var inGroep={};
     var groepen=[];
 
-    // Expliciete voorkeurskoppelingen (hoogste prioriteit)
     kKoppelingen.forEach(function(kk){
       var groep=kk.ids.map(function(id){return vind(vrijeK,id);}).filter(function(k){return k&&!inGroep[k.id];});
-      if(groep.length>=2){groep.forEach(function(k){inGroep[k.id]=true;});groepen.push({leden:groep,prioriteit:100});}
+      if(groep.length>=2){groep.forEach(function(k){inGroep[k.id]=true;});groepen.push({leden:groep,prioriteit:100,nat:null});}
     });
 
-    // Nationaliteitsgroepen: splits in duo's/trio's zodat niemand solo zit
     if(natGewicht>0){
       var natG={};
       vrijeK.forEach(function(k){
@@ -786,29 +809,18 @@ function genereer() {
       });
       Object.keys(natG).forEach(function(nat){
         var groep=natG[nat];
-        if(groep.length<2) return; // solo van die nat → gewoon vrij laten (Pools kind)
-
-        // Splits grote groep in stukken van bootgrootte (max 3 per stuk zodat ze passen)
-        // Doel: elk stuk >= 2, zodat niemand solo is
-        var stukGrootte = Math.ceil(groep.length / boten.length);
-        if(stukGrootte < 2) stukGrootte = 2;
-        if(stukGrootte > 3) stukGrootte = 3;
-
-        for(var i=0; i<groep.length; i+=stukGrootte){
-          var stuk=groep.slice(i, i+stukGrootte);
-          // Als het laatste stuk maar 1 persoon heeft, voeg toe aan vorige groep
-          if(stuk.length===1 && groepen.length>0){
-            var vorigeGroep=groepen[groepen.length-1];
-            // Alleen samenvoegen als dezelfde nationaliteit
-            if(vorigeGroep.nat===nat){
-              vorigeGroep.leden=vorigeGroep.leden.concat(stuk);
-              stuk[0].inGroep=true;
-              inGroep[stuk[0].id]=true;
-              continue;
-            }
+        if(groep.length<2) return;
+        var stukGrootte=Math.max(2,Math.ceil(groep.length/boten.length));
+        if(stukGrootte>3) stukGrootte=3;
+        for(var i=0;i<groep.length;i+=stukGrootte){
+          var stuk=groep.slice(i,i+stukGrootte);
+          if(stuk.length===1){
+            var vorigeNatGroep=null;
+            for(var g=groepen.length-1;g>=0;g--){ if(groepen[g].nat===nat){vorigeNatGroep=groepen[g];break;} }
+            if(vorigeNatGroep){vorigeNatGroep.leden=vorigeNatGroep.leden.concat(stuk);inGroep[stuk[0].id]=true;continue;}
           }
           stuk.forEach(function(k){inGroep[k.id]=true;});
-          groepen.push({leden:stuk, prioriteit:natGewicht, nat:nat});
+          groepen.push({leden:stuk,prioriteit:natGewicht,nat:nat});
         }
       });
     }
@@ -819,90 +831,67 @@ function genereer() {
     var noodEnkelen=[];
     groepen.forEach(function(groepObj){
       var groep=groepObj.leden;
-      // Zoek boot met genoeg ruimte voor de hele groep
-      var opties=ib.filter(function(b){return (b.effectiefMax-b.personen.length)>=groep.length;});
-      opties.sort(function(a,b){return a.personen.length-b.personen.length;});
+      var opties=ib.filter(function(b){return ruimte(b)>=groep.length;});
+      opties.sort(function(a,b){return ruimte(a)-ruimte(b);});
       if(opties.length){
-        // Hele groep past — controleer nogmaals capaciteit per persoon
         var doel=opties[0];
-        groep.forEach(function(k){
-          if(doel.personen.length<doel.effectiefMax){
-            doel.personen.push(k);herbereken(doel);
-          } else {
-            noodEnkelen.push(k); // boot vol geworden door mv-herberekening
-          }
-        });
-      } else {
-        // Groep past niet in één boot: plaats in duo's verspreid, nooit solo
+        groep.forEach(function(k){ if(!plaatsPersoon(k,doel)) noodEnkelen.push(k); });
+      } else if(groepObj.nat){
         var resterend=groep.slice();
         while(resterend.length>=2){
           var duo=resterend.splice(0,2);
-          var duoOpties=ib.filter(function(b){return (b.effectiefMax-b.personen.length)>=2;});
-          duoOpties.sort(function(a,b){return a.personen.length-b.personen.length;});
-          if(duoOpties.length){
-            duo.forEach(function(k){duoOpties[0].personen.push(k);herbereken(duoOpties[0]);});
-          } else {
-            duo.forEach(function(k){noodEnkelen.push(k);});
-          }
+          var duoOpties=ib.filter(function(b){return ruimte(b)>=2;});
+          duoOpties.sort(function(a,b){return ruimte(a)-ruimte(b);});
+          if(duoOpties.length){ duo.forEach(function(k){if(!plaatsPersoon(k,duoOpties[0])) noodEnkelen.push(k);}); }
+          else { duo.forEach(function(k){noodEnkelen.push(k);}); }
         }
-        // Enkel overgebleven kind: toevoegen aan een boot met dezelfde nat als er ruimte is
         if(resterend.length===1){
           var soloK=resterend[0];
           var natOpties=ib.filter(function(b){
-            return b.personen.length<b.effectiefMax
-              && b.personen.some(function(p){return p.nationaliteit&&p.nationaliteit.toLowerCase()===groepObj.nat;});
+            return ruimte(b)>0&&b.personen.some(function(p){return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===groepObj.nat;});
           });
-          natOpties.sort(function(a,b){return a.personen.length-b.personen.length;});
-          if(natOpties.length){natOpties[0].personen.push(soloK);herbereken(natOpties[0]);}
-          else noodEnkelen.push(soloK);
+          natOpties.sort(function(a,b){return ruimte(a)-ruimte(b);});
+          var geplaatst=false;
+          for(var ni=0;ni<natOpties.length;ni++){ if(plaatsPersoon(soloK,natOpties[ni])){geplaatst=true;break;} }
+          if(!geplaatst) noodEnkelen.push(soloK);
         }
+      } else {
+        groep.forEach(function(k){noodEnkelen.push(k);});
       }
     });
 
-    // Stap 5: Rest verdelen — ALTIJD capaciteit controleren
-    var rest=shuffle(enkelen.concat(noodEnkelen).concat(shuffle(overigen)).concat(zS.slice(boten.length)));
+    // Stap 5: Rest verdelen
+    var rest=shuffle(enkelen.concat(noodEnkelen).concat(shuffle(overigen)).concat(extraZ));
     rest.forEach(function(p){
-      var opties=ib.filter(function(b){return b.personen.length<b.effectiefMax&&magOpBoot(p,b);});
-      if(!opties.length) opties=ib.filter(function(b){return b.personen.length<b.effectiefMax;}); // ruzie negeren als noodgeval
-      opties.sort(function(a,b){return a.personen.length-b.personen.length;});
-      if(opties.length){opties[0].personen.push(p);herbereken(opties[0]);}
-      else warn.push(escHtml(p.naam)+' kon niet worden ingedeeld (boten vol).');
+      var geplaatst=kiesBoot(p,function(b){return ruimte(b)>0&&magOpBoot(p,b);},function(a,b){return ruimte(a)-ruimte(b);});
+      if(!geplaatst) geplaatst=kiesBoot(p,function(b){return ruimte(b)>0;},function(a,b){return ruimte(a)-ruimte(b);});
+      if(!geplaatst) warn.push(escHtml(p.naam)+' kon niet worden ingedeeld (alle boten vol).');
     });
 
-    // Stap 5b: M nogmaals controleren na plaatsing kinderen — MET capaciteitscheck
+    // Stap 5b: M nogmaals na kindplaatsing
     ib.forEach(function(b){
       var heeftKind=b.personen.some(function(p){return p.geslacht!==undefined;});
       var heeftM=b.personen.some(function(p){return p.cat==='M';});
       if(heeftKind&&!heeftM){
-        if(mRest[mi]&&b.personen.length<b.effectiefMax){
-          b.personen.push(mRest[mi]);gebruiktM[mRest[mi].id]=true;mi++;
-        } else if(mRest[mi]&&b.personen.length>=b.effectiefMax){
-          warn.push('Boot "'+escHtml(b.naam)+'" heeft kinderen maar is vol — Medisch-persoon kon niet worden toegevoegd.');
-        } else {
-          warn.push('Boot "'+escHtml(b.naam)+'" heeft kinderen maar geen Medisch-persoon beschikbaar.');
-        }
+        if(mRest[mi]){ if(plaatsPersoon(mRest[mi],b)){gebruiktM[mRest[mi].id]=true;mi++;}
+          else warn.push('Boot "'+escHtml(b.naam)+'" heeft kinderen maar is vol — Medisch kon niet worden toegevoegd.');
+        } else warn.push('Boot "'+escHtml(b.naam)+'" heeft kinderen maar geen Medisch beschikbaar.');
       }
     });
+    mRest.slice(mi).forEach(function(v){ kiesBoot(v,function(b){return ruimte(b)>0;},function(a,b){return ruimte(a)-ruimte(b);}); });
 
-    // Resterende M verdelen — MET capaciteitscheck
-    mRest.slice(mi).forEach(function(v){
-      var opties=ib.filter(function(b){return b.personen.length<b.effectiefMax;});
-      opties.sort(function(a,b){return a.personen.length-b.personen.length;});
-      if(opties.length) opties[0].personen.push(v);
-      // geen waarschuwing: resterende M zijn niet verplicht
-    });
-
-    // Stap 6: Capaciteitscheck als vangnet — waarschuw als een boot toch overvol is
+    // Stap 6: Validatie
     ib.forEach(function(b){
       if(b.personen.length>b.effectiefMax)
-        warn.push('⛔ Boot "'+escHtml(b.naam)+'" heeft '+b.personen.length+' personen maar max is '+b.effectiefMax+' — controleer de indeling!');
-      if(b.personen.length<b.min) warn.push('Boot "'+escHtml(b.naam)+'" heeft slechts '+b.personen.length+' personen (min. '+b.min+').');
+        warn.push('⛔ Boot "'+escHtml(b.naam)+'" heeft '+b.personen.length+'/'+b.effectiefMax+' — OVERVOL!');
+      if(b.personen.length<b.min)
+        warn.push('Boot "'+escHtml(b.naam)+'" heeft slechts '+b.personen.length+' personen (min. '+b.min+').');
       rKoppelingen.forEach(function(r){
         var k1=b.personen.some(function(p){return p.id===r.ids[0];});
         var k2=b.personen.some(function(p){return p.id===r.ids[1];});
         if(k1&&k2){
           var n1=vind(kinderen,r.ids[0]);var n2=vind(kinderen,r.ids[1]);
-          warn.push('⚠ Conflict: '+(n1?escHtml(n1.naam):'?')+' en '+(n2?escHtml(n2.naam):'?')+' zitten samen op boot "'+escHtml(b.naam)+'".');
+          warn.push('⚠ Conflict: '+(n1?escHtml(n1.naam):'?')+' en '+(n2?escHtml(n2.naam):'?')+' op boot "'+escHtml(b.naam)+'".');
         }
       });
     });
@@ -915,11 +904,9 @@ function genereer() {
         if(b.personen.some(function(p){return p.id===p2.id;})) boot2=b;
       });
       if(boot1&&boot2&&boot1!==boot2)
-        warn.push('🤝 Koppeling niet gelukt: '+escHtml(p1.naam)+' en '+escHtml(p2.naam)+' zitten op verschillende boten.');
+        warn.push('🤝 Koppeling niet gelukt: '+escHtml(p1.naam)+' en '+escHtml(p2.naam)+' op verschillende boten.');
     });
-
-    // Nationaliteit solo-waarschuwing
-    if (natGewicht > 0) {
+    if(natGewicht>0){
       ib.forEach(function(b){
         var natTelling={};
         b.personen.forEach(function(p){
@@ -929,24 +916,38 @@ function genereer() {
           }
         });
         Object.keys(natTelling).forEach(function(nat){
-          if(natTelling[nat]===1){
-            var kind=b.personen.find(function(p){return p.geslacht!==undefined&&p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;});
-            warn.push('🌍 '+escHtml(kind?kind.naam:'?')+' is als enige '+escHtml(nat)+' op boot "'+escHtml(b.naam)+'" (geen betere indeling mogelijk).');
+          var totaalVanNat=beschikK.filter(function(k){return k.nationaliteit&&k.nationaliteit.toLowerCase().trim()===nat;}).length;
+          if(natTelling[nat]===1&&totaalVanNat>=2){
+            var soloKind=b.personen.find(function(p){return p.geslacht!==undefined&&p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;});
+            warn.push('🌍 '+escHtml(soloKind?soloKind.naam:'?')+' is als enige '+escHtml(nat)+' op boot "'+escHtml(b.naam)+'".');
           }
         });
       });
     }
 
-    return {ib:ib, warn:warn, score:scorePoging(ib,warn)};
+    return {ib:ib,warn:warn,score:scorePoging(ib,warn)};
   }
+
 
   // ── RETRY LOOP: max 100 pogingen, kies beste ──
   var beste=null;
   var MAX=100;
   for(var poging=0;poging<MAX;poging++){
     var resultaat=eenPoging();
+    // Accepteer alleen indelingen zonder overvol
+    var heeftOvervol=resultaat.ib.some(function(b){return b.personen.length>b.effectiefMax;});
+    if(heeftOvervol) continue; // deze poging niet acceptabel
     if(!beste||resultaat.score<beste.score) beste=resultaat;
-    if(beste.score===0) break; // perfecte oplossing gevonden
+    if(beste.score===0) break; // perfecte oplossing
+  }
+
+  // Als alle pogingen overvol waren, pak toch de beste (fout melden)
+  if(!beste){
+    for(var p2=0;p2<MAX;p2++){
+      var r2=eenPoging();
+      if(!beste||r2.score<beste.score) beste=r2;
+    }
+    beste.warn.unshift('⛔ Na 100 pogingen kon geen geldige indeling gevonden worden zonder overvol. Controleer of er genoeg capaciteit is.');
   }
 
   var ib=beste.ib, warn=beste.warn;
