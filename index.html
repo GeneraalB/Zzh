@@ -336,21 +336,6 @@ select option { background: #081526; }
 
   <!-- TAB 4 -->
   <div id="tab-indeling" class="tab-panel">
-    <div class="card" style="margin-bottom:14px;max-width:520px">
-      <div class="card-title">⚙️ Instellingen indeling</div>
-      <div style="margin-bottom:6px">
-        <label class="lbl">Nationaliteit bij elkaar houden</label>
-        <div style="display:flex;align-items:center;gap:10px">
-          <input type="range" id="natSlider" min="0" max="100" value="0"
-            oninput="document.getElementById('natWaarde').textContent=this.value+'%'"
-            style="flex:1;accent-color:#c9a84c">
-          <span id="natWaarde" style="font-size:13px;color:#c9a84c;min-width:36px">0%</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:#3a6080;margin-top:2px">
-          <span>niet belangrijk</span><span>voorkeur</span><span>harde eis</span>
-        </div>
-      </div>
-    </div>
     <div class="btn-row">
       <button class="btn-gold big" id="btnGen" onclick="genereer()">🎲 Genereer indeling</button>
       <button id="btnExport" onclick="exportXlsx()" style="display:none;background:transparent;border:1px solid #51cf66;color:#51cf66;padding:9px 16px;border-radius:4px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">⬇ Download CSV</button>
@@ -670,7 +655,6 @@ function genereer() {
   var zeilers=beschikV.filter(function(v){return v.cat==='Z';});
   var medisch=beschikV.filter(function(v){return v.cat==='M';});
   var overigen=beschikV.filter(function(v){return v.cat!=='Z'&&v.cat!=='M';});
-  var natGewicht=parseInt(document.getElementById('natSlider').value)||0;
 
   // Validatie
   var errors=[];
@@ -691,24 +675,22 @@ function genereer() {
   // ── SCORE FUNCTIE: lager = beter ──
   function scorePoging(ib, warn) {
     var score = warn.length * 100;
-    if (natGewicht > 0) {
-      ib.forEach(function(b){
-        var natTelling={};
-        b.personen.forEach(function(p){
-          if(p.geslacht!==undefined&&p.nationaliteit){
-            var nat=p.nationaliteit.toLowerCase().trim();
-            natTelling[nat]=(natTelling[nat]||0)+1;
-          }
-        });
-        Object.keys(natTelling).forEach(function(nat){
-          // Solo op een boot terwijl er >=2 van die nat beschikbaar zijn = zwaar bestraffen
-          var totaalVanNat=beschikK.filter(function(k){return k.nationaliteit&&k.nationaliteit.toLowerCase().trim()===nat;}).length;
-          if(natTelling[nat]===1 && totaalVanNat>=2){
-            score += 1000; // harde penalty voor solo
-          }
-        });
+    // Solo-kind van nationaliteit met >=2 beschikbaar: zwaar bestraffen
+    ib.forEach(function(b){
+      var natTelling={};
+      b.personen.forEach(function(p){
+        if(p.geslacht!==undefined&&p.nationaliteit){
+          var nat=p.nationaliteit.toLowerCase().trim();
+          natTelling[nat]=(natTelling[nat]||0)+1;
+        }
       });
-    }
+      Object.keys(natTelling).forEach(function(nat){
+        var totaalVanNat=beschikK.filter(function(k){return k.nationaliteit&&k.nationaliteit.toLowerCase().trim()===nat;}).length;
+        if(natTelling[nat]===1 && totaalVanNat>=2){
+          score += 1000;
+        }
+      });
+    });
     return score;
   }
 
@@ -814,7 +796,7 @@ function genereer() {
     var inGroep={};
     var noodEnkelen=[];
 
-    if(natGewicht>0){
+    {// nationaliteitsregel altijd actief
       var natG={};
       vrijeK.forEach(function(k){
         if(k.nationaliteit){
@@ -956,7 +938,7 @@ function genereer() {
         warn.push('🤝 Koppeling niet gelukt: '+escHtml(p1.naam)+' en '+escHtml(p2.naam)+' op verschillende boten.');
     });
     // Solo-nationaliteit check
-    if(natGewicht>0){
+    {// nationaliteitsregel altijd actief
       ib.forEach(function(b){
         var natTelling={};
         b.personen.forEach(function(p){
