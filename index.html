@@ -281,48 +281,10 @@ select option { background: #081526; }
   <!-- TAB 3 -->
   <div id="tab-koppelingen" class="tab-panel">
     <div style="max-width:640px">
-      <div class="card">
-        <div class="card-title">🔗 Kinderen aan elkaar koppelen</div>
-        <p class="hint"><strong>Voorkeur:</strong> de tool probeert deze kinderen op dezelfde boot te plaatsen. Maximaal 3 kinderen per koppeling.</p>
-        <div id="kKoppelingLijst"><div class="leeg">Nog geen koppelingen</div></div>
-        <div class="sectie-titel">Nieuwe koppeling</div>
-        <div class="form-grid">
-          <div class="form-col"><label class="lbl">Kind 1</label><select id="kk1"><option value="">— kies kind —</option></select></div>
-          <div class="form-col"><label class="lbl">Kind 2</label><select id="kk2"><option value="">— kies kind —</option></select></div>
-        </div>
-        <div class="form-grid">
-          <div class="form-col"><label class="lbl">Kind 3 (optioneel)</label><select id="kk3"><option value="">— geen —</option></select></div>
-          <div></div>
-        </div>
-        <button class="btn-gold" onclick="addKKoppeling()">＋ Koppeling toevoegen</button>
-      </div>
-
-      <div class="card">
-        <div class="card-title">⚠️ Kind koppelen aan specifieke Medisch-persoon</div>
-        <p class="hint"><strong>Harde eis:</strong> dit kind komt altijd op de boot van de gekozen Medisch-persoon.</p>
-        <div id="mKoppelingLijst"><div class="leeg">Nog geen koppelingen</div></div>
-        <div class="sectie-titel">Nieuwe koppeling</div>
-        <div class="form-grid">
-          <div class="form-col"><label class="lbl">Kind</label><select id="mk_kind"><option value="">— kies kind —</option></select></div>
-          <div class="form-col"><label class="lbl">Medisch-persoon</label><select id="mk_medisch"><option value="">— kies medisch —</option></select></div>
-        </div>
-        <button class="btn-gold" onclick="addMKoppeling()">＋ Koppeling toevoegen</button>
-      </div>
-      <div class="card">
-        <div class="card-title">🚫 Kinderen uit elkaar houden</div>
-        <p class="hint"><strong>Harde eis:</strong> deze kinderen komen nooit op dezelfde boot.</p>
-        <div id="rKoppelingLijst"><div class="leeg">Nog geen conflicten</div></div>
-        <div class="sectie-titel">Nieuw conflict</div>
-        <div class="form-grid">
-          <div class="form-col"><label class="lbl">Kind 1</label><select id="rk1"><option value="">— kies kind —</option></select></div>
-          <div class="form-col"><label class="lbl">Kind 2</label><select id="rk2"><option value="">— kies kind —</option></select></div>
-        </div>
-        <button class="btn-gold" onclick="addRKoppeling()">＋ Conflict toevoegen</button>
-      </div>
 
       <div class="card">
         <div class="card-title">🤝 Personen aan elkaar koppelen</div>
-        <p class="hint"><strong>Laagste prioriteit (voorkeur):</strong> de tool probeert deze personen op dezelfde boot te plaatsen. Als dit niet lukt wordt dit gemeld. Werkt voor alle categorieën — volwassenen én kinderen.</p>
+        <p class="hint"><strong>Voorkeur:</strong> de tool probeert deze personen op dezelfde boot te plaatsen. Werkt voor alle categorieën — volwassenen én kinderen.</p>
         <div id="pKoppelingLijst"><div class="leeg">Nog geen koppelingen</div></div>
         <div class="sectie-titel">Nieuwe koppeling</div>
         <div class="form-grid">
@@ -331,6 +293,19 @@ select option { background: #081526; }
         </div>
         <button class="btn-gold" onclick="addPKoppeling()">＋ Koppeling toevoegen</button>
       </div>
+
+      <div class="card">
+        <div class="card-title">🚫 Personen uit elkaar houden</div>
+        <p class="hint"><strong>Voorkeur:</strong> de tool probeert deze personen op verschillende boten te plaatsen.</p>
+        <div id="rKoppelingLijst"><div class="leeg">Nog geen uitsluitingen</div></div>
+        <div class="sectie-titel">Nieuwe uitsluiting</div>
+        <div class="form-grid">
+          <div class="form-col"><label class="lbl">Persoon 1</label><select id="rk1"><option value="">— kies persoon —</option></select></div>
+          <div class="form-col"><label class="lbl">Persoon 2</label><select id="rk2"><option value="">— kies persoon —</option></select></div>
+        </div>
+        <button class="btn-gold" onclick="addRKoppeling()">＋ Uitsluiting toevoegen</button>
+      </div>
+
     </div>
   </div>
 
@@ -353,7 +328,8 @@ var volwassenen = [], kinderen = [];
 var boten = [1,2,3,4,5,6,7,8,9,10,11].map(function(n){
   return {id:uid(), naam:String(n), min:4, max:6};
 });
-var kKoppelingen = [], mKoppelingen = [];
+var pKoppelingen = []; // personen samen
+var rKoppelingen = []; // personen uit elkaar
 var rondeNr = 0;
 
 function uid() { return Math.random().toString(36).slice(2,9); }
@@ -421,7 +397,6 @@ function toggleVol(id, veld, waarde) {
 }
 function delVol(id) {
   volwassenen=volwassenen.filter(function(v){return v.id!==id;});
-  mKoppelingen=mKoppelingen.filter(function(k){return k.medischId!==id;});
   renderVol(); renderMKoppelingen();
 }
 
@@ -467,8 +442,6 @@ function toggleKin(id, veld, waarde) {
 }
 function delKin(id) {
   kinderen=kinderen.filter(function(k){return k.id!==id;});
-  kKoppelingen=kKoppelingen.filter(function(k){return k.ids.indexOf(id)===-1;});
-  mKoppelingen=mKoppelingen.filter(function(k){return k.kindId!==id;});
   rKoppelingen=rKoppelingen.filter(function(r){return r.ids.indexOf(id)===-1;});
   renderKin(); renderKKoppelingen(); renderMKoppelingen(); renderRKoppelingen();
 }
@@ -496,125 +469,30 @@ function delBoot(id) { boten=boten.filter(function(b){return b.id!==id;}); rende
 
 // ── KOPPELINGSELECTS VULLEN ──
 function vulKoppelingSelects() {
-  var bk = kinderen.filter(function(k){return !k.boerderij&&!k.buitenland;});
-  var bm = volwassenen.filter(function(v){return v.cat==='M'&&!v.boerderij&&!v.buitenland&&!v.philippine;});
-  var beschikbareV = volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&v.cat!=='P'&&!v.philippine;});
+  var allePersonen = [];
+  volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&v.cat!=='P'&&!v.philippine;})
+    .forEach(function(v){ allePersonen.push({ref:'v_'+v.id, label:escHtml(v.naam)+' ['+v.cat+']'}); });
+  kinderen.filter(function(k){return !k.boerderij&&!k.buitenland&&!k.philippine;})
+    .forEach(function(k){ allePersonen.push({ref:'k_'+k.id, label:escHtml(k.naam)+' ['+k.geslacht+(k.mv?' m+':'')+']'}); });
 
-  ['kk1','kk2','kk3','mk_kind','rk1','rk2'].forEach(function(sid){
-    var sel=document.getElementById(sid);
-    var huidig=sel.value;
-    sel.innerHTML=(sid==='kk3')?'<option value="">— geen —</option>':'<option value="">— kies kind —</option>';
-    bk.forEach(function(k){
-      sel.innerHTML+='<option value="'+k.id+'"'+(k.id===huidig?' selected':'')+'>'+escHtml(k.naam)+(k.mv?' (m+)':'')+'</option>';
-    });
-  });
-
-  var msel=document.getElementById('mk_medisch');
-  var huidigM=msel.value;
-  msel.innerHTML='<option value="">— kies medisch —</option>';
-  bm.forEach(function(v){
-    msel.innerHTML+='<option value="'+v.id+'"'+(v.id===huidigM?' selected':'')+'>'+escHtml(v.naam)+'</option>';
-  });
-
-  // Personen-koppeling: alle beschikbare personen
-  ['pk1','pk2'].forEach(function(sid){
+  ['pk1','pk2','rk1','rk2'].forEach(function(sid){
     var sel=document.getElementById(sid);
     var huidig=sel.value;
     sel.innerHTML='<option value="">— kies persoon —</option>';
-    beschikbareV.forEach(function(v){
-      sel.innerHTML+='<option value="v_'+v.id+'"'+(('v_'+v.id)===huidig?' selected':'')+'>'+escHtml(v.naam)+' ['+v.cat+']</option>';
-    });
-    bk.forEach(function(k){
-      sel.innerHTML+='<option value="k_'+k.id+'"'+(('k_'+k.id)===huidig?' selected':'')+'>'+escHtml(k.naam)+' ['+k.geslacht+']</option>';
+    allePersonen.forEach(function(p){
+      sel.innerHTML+='<option value="'+p.ref+'"'+(p.ref===huidig?' selected':'')+'>'+p.label+'</option>';
     });
   });
 }
 
-// ── KOPPELING KINDEREN ──
-function addKKoppeling() {
-  var id1=document.getElementById('kk1').value;
-  var id2=document.getElementById('kk2').value;
-  var id3=document.getElementById('kk3').value;
-  if (!id1||!id2){alert('Kies minimaal 2 kinderen.');return;}
-  if (id1===id2||(id3&&(id1===id3||id2===id3))){alert('Kies verschillende kinderen.');return;}
-  var ids=[id1,id2];
-  if (id3) ids.push(id3);
-  kKoppelingen.push({id:uid(),ids:ids});
-  renderKKoppelingen();
-}
-function renderKKoppelingen() {
-  var el=document.getElementById('kKoppelingLijst');
-  if (!kKoppelingen.length){el.innerHTML='<div class="leeg">Nog geen koppelingen</div>';return;}
-  el.innerHTML=kKoppelingen.map(function(k){
-    var namen=k.ids.map(function(id){var x=vind(kinderen,id);return x?escHtml(x.naam):'?';}).join(' + ');
-    return '<div class="koppel-rij"><span class="koppel-namen">🔗 '+namen+'</span>'
-      +'<span class="koppel-type">voorkeur</span>'
-      +'<button class="btn-del" onclick="delKK(\''+k.id+'\')">✕</button></div>';
-  }).join('');
-}
-function delKK(id){kKoppelingen=kKoppelingen.filter(function(k){return k.id!==id;});renderKKoppelingen();}
-
-// ── KOPPELING MEDISCH ──
-function addMKoppeling() {
-  var kindId=document.getElementById('mk_kind').value;
-  var medischId=document.getElementById('mk_medisch').value;
-  if (!kindId||!medischId){alert('Kies een kind én een Medisch-persoon.');return;}
-  if (mKoppelingen.some(function(k){return k.kindId===kindId;})){alert('Dit kind is al gekoppeld.');return;}
-  mKoppelingen.push({id:uid(),kindId:kindId,medischId:medischId});
-  renderMKoppelingen();
-}
-function renderMKoppelingen() {
-  var el=document.getElementById('mKoppelingLijst');
-  if (!mKoppelingen.length){el.innerHTML='<div class="leeg">Nog geen koppelingen</div>';return;}
-  el.innerHTML=mKoppelingen.map(function(k){
-    var kind=vind(kinderen,k.kindId);
-    var med=vind(volwassenen,k.medischId);
-    return '<div class="koppel-rij"><span class="koppel-namen">⚠️ '
-      +(kind?escHtml(kind.naam):'?')+' → '+(med?escHtml(med.naam):'?')+'</span>'
-      +'<span class="koppel-type">harde eis</span>'
-      +'<button class="btn-del" onclick="delMK(\''+k.id+'\')">✕</button></div>';
-  }).join('');
-}
-function delMK(id){mKoppelingen=mKoppelingen.filter(function(k){return k.id!==id;});renderMKoppelingen();}
-
-// ── RUZIE-KOPPELINGEN ──
-var rKoppelingen = [];
-function addRKoppeling() {
-  var id1=document.getElementById('rk1').value;
-  var id2=document.getElementById('rk2').value;
-  if (!id1||!id2){alert('Kies twee kinderen.');return;}
-  if (id1===id2){alert('Kies twee verschillende kinderen.');return;}
-  var bestaatAl=rKoppelingen.some(function(r){
-    return (r.ids[0]===id1&&r.ids[1]===id2)||(r.ids[0]===id2&&r.ids[1]===id1);
-  });
-  if (bestaatAl){alert('Dit conflict bestaat al.');return;}
-  rKoppelingen.push({id:uid(),ids:[id1,id2]});
-  renderRKoppelingen();
-}
-function renderRKoppelingen() {
-  var el=document.getElementById('rKoppelingLijst');
-  if (!rKoppelingen.length){el.innerHTML='<div class="leeg">Nog geen conflicten</div>';return;}
-  el.innerHTML=rKoppelingen.map(function(r){
-    var namen=r.ids.map(function(id){var x=vind(kinderen,id);return x?escHtml(x.naam):'?';}).join(' 🚫 ');
-    return '<div class="koppel-rij" style="border-color:#3d1010">'
-      +'<span class="koppel-namen">'+namen+'</span>'
-      +'<span class="koppel-type" style="color:#ff6b6b">harde eis</span>'
-      +'<button class="btn-del" onclick="delRK(\''+r.id+'\')">✕</button></div>';
-  }).join('');
-}
-function delRK(id){rKoppelingen=rKoppelingen.filter(function(r){return r.id!==id;});renderRKoppelingen();}
-
-// ── PERSONEN-KOPPELINGEN (voorkeur, laagste prioriteit) ──
-var pKoppelingen = [];
+// ── PERSONEN KOPPELING ──
 function addPKoppeling() {
   var ref1=document.getElementById('pk1').value;
   var ref2=document.getElementById('pk2').value;
   if (!ref1||!ref2){alert('Kies twee personen.');return;}
   if (ref1===ref2){alert('Kies twee verschillende personen.');return;}
-  var bestaatAl=pKoppelingen.some(function(p){
-    return (p.refs[0]===ref1&&p.refs[1]===ref2)||(p.refs[0]===ref2&&p.refs[1]===ref1);
-  });
-  if (bestaatAl){alert('Deze koppeling bestaat al.');return;}
+  if (pKoppelingen.some(function(p){return (p.refs[0]===ref1&&p.refs[1]===ref2)||(p.refs[0]===ref2&&p.refs[1]===ref1);}))
+    {alert('Deze koppeling bestaat al.');return;}
   pKoppelingen.push({id:uid(),refs:[ref1,ref2]});
   renderPKoppelingen();
 }
@@ -622,6 +500,43 @@ function getPersoonByRef(ref) {
   if (ref.indexOf('v_')===0) return vind(volwassenen, ref.slice(2));
   if (ref.indexOf('k_')===0) return vind(kinderen, ref.slice(2));
   return null;
+}
+function renderPKoppelingen() {
+  var el=document.getElementById('pKoppelingLijst');
+  if (!pKoppelingen.length){el.innerHTML='<div class="leeg">Nog geen koppelingen</div>';return;}
+  el.innerHTML=pKoppelingen.map(function(p){
+    var n1=getPersoonByRef(p.refs[0]); var n2=getPersoonByRef(p.refs[1]);
+    return '<div class="koppel-rij"><span class="koppel-namen">🤝 '+(n1?escHtml(n1.naam):'?')+' + '+(n2?escHtml(n2.naam):'?')+'</span>'
+      +'<span class="koppel-type">voorkeur</span>'
+      +'<button class="btn-del" onclick="delPK(\''+p.id+'\')">✕</button></div>';
+  }).join('');
+}
+function delPK(id){pKoppelingen=pKoppelingen.filter(function(p){return p.id!==id;});renderPKoppelingen();}
+
+// ── PERSONEN UITSLUITING ──
+function addRKoppeling() {
+  var ref1=document.getElementById('rk1').value;
+  var ref2=document.getElementById('rk2').value;
+  if (!ref1||!ref2){alert('Kies twee personen.');return;}
+  if (ref1===ref2){alert('Kies twee verschillende personen.');return;}
+  if (rKoppelingen.some(function(r){return (r.ids[0]===ref1&&r.ids[1]===ref2)||(r.ids[0]===ref2&&r.ids[1]===ref1);}))
+    {alert('Deze uitsluiting bestaat al.');return;}
+  rKoppelingen.push({id:uid(),ids:[ref1,ref2]});
+  renderRKoppelingen();
+}
+function renderRKoppelingen() {
+  var el=document.getElementById('rKoppelingLijst');
+  if (!rKoppelingen.length){el.innerHTML='<div class="leeg">Nog geen uitsluitingen</div>';return;}
+  el.innerHTML=rKoppelingen.map(function(r){
+    var n1=getPersoonByRef(r.ids[0]); var n2=getPersoonByRef(r.ids[1]);
+    return '<div class="koppel-rij" style="border-color:#3d1010"><span class="koppel-namen">🚫 '+(n1?escHtml(n1.naam):'?')+' ≠ '+(n2?escHtml(n2.naam):'?')+'</span>'
+      +'<span class="koppel-type" style="color:#ff6b6b">uitsluiting</span>'
+      +'<button class="btn-del" onclick="delRK(\''+r.id+'\')">✕</button></div>';
+  }).join('');
+}
+function delRK(id){rKoppelingen=rKoppelingen.filter(function(r){return r.id!==id;});renderRKoppelingen();}
+
+
 }
 function renderPKoppelingen() {
   var el=document.getElementById('pKoppelingLijst');
@@ -651,22 +566,14 @@ function genereer() {
   var boerderij=volwassenen.filter(function(v){return v.boerderij;}).concat(kinderen.filter(function(k){return k.boerderij;}));
   var buitenland=volwassenen.filter(function(v){return v.buitenland;}).concat(kinderen.filter(function(k){return k.buitenland;}));
   var beschikV=volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&v.cat!=='P'&&!v.philippine;});
-  var beschikK=kinderen.filter(function(k){return !k.boerderij&&!k.buitenland&&!k.philippine;});
   var zeilers=beschikV.filter(function(v){return v.cat==='Z';});
   var medisch=beschikV.filter(function(v){return v.cat==='M';});
-  var overigen=beschikV.filter(function(v){return v.cat!=='Z'&&v.cat!=='M';});
 
   // Validatie
   var errors=[];
   if (!boten.length) errors.push('Voeg eerst boten toe (tab ② Boten).');
   if (zeilers.length<boten.length) errors.push('Te weinig Zeilers (Z): '+zeilers.length+' beschikbaar, '+boten.length+' nodig.');
-  mKoppelingen.forEach(function(mk){
-    var med=vind(volwassenen,mk.medischId);
-    if (!med||med.boerderij||med.buitenland||med.philippine||med.cat!=='M'){
-      var kind=vind(kinderen,mk.kindId);
-      errors.push((kind?kind.naam:'?')+' is gekoppeld aan een Medisch-persoon die niet beschikbaar is op een Valk.');
-    }
-  });
+  if (medisch.length<boten.length) errors.push('Te weinig Medisch (M): '+medisch.length+' beschikbaar, '+boten.length+' nodig.');
   if (errors.length){
     msgsEl.innerHTML=errors.map(function(e){return '<div class="msg msg-err">❌ '+escHtml(e)+'</div>';}).join('');
     return;
@@ -699,21 +606,23 @@ function genereer() {
     var ib=boten.map(function(b){return {id:b.id,naam:b.naam,min:b.min,max:b.max,origMax:b.max,effectiefMax:b.max,personen:[]};});
     var warn=[];
 
-    // ── Hulpfuncties ──
-    function herbereken(b){
-      b.effectiefMax=b.origMax-b.personen.filter(function(p){return p.mv;}).length;
-    }
+    function herbereken(b){ b.effectiefMax=b.origMax-b.personen.filter(function(p){return p.mv;}).length; }
     function ruimte(b){ return b.effectiefMax-b.personen.length; }
     function heeftZ(b){ return b.personen.some(function(p){return p.cat==='Z';}); }
     function heeftM(b){ return b.personen.some(function(p){return p.cat==='M';}); }
-    function heeftKind(b){ return b.personen.some(function(p){return p.geslacht!==undefined;}); }
+    function refVan(p){ return p.cat ? 'v_'+p.id : 'k_'+p.id; }
+
     function magOpBoot(p,b){
+      // Uitsluiting: controleer rKoppelingen op basis van ref
+      var ref=refVan(p);
       return rKoppelingen.every(function(r){
-        if(r.ids.indexOf(p.id)===-1) return true;
-        var anderId=r.ids[0]===p.id?r.ids[1]:r.ids[0];
-        return !b.personen.some(function(q){return q.id===anderId;});
+        if(r.ids.indexOf(ref)===-1) return true;
+        var anderRef=r.ids[0]===ref?r.ids[1]:r.ids[0];
+        return !b.personen.some(function(q){return refVan(q)===anderRef;});
       });
     }
+
+    // Centrale plaatsingsfunctie — weigert altijd bij overschrijding
     function plaats(p,b){
       if(ruimte(b)<=0) return false;
       b.personen.push(p);
@@ -730,235 +639,182 @@ function genereer() {
     function sortMeestRuimte(a,b){return ruimte(b)-ruimte(a);}
 
     // ════════════════════════════════════════════════════════
-    // FASE 1 — Elke boot uitrusten: 1 Zeiler + 1 Medisch
-    // Dit is de absolute harde eis. Kinderen komen PAS daarna.
+    // STAP 1 — Elke boot: 1 Zeiler + 1 Medisch (harde eis)
     // ════════════════════════════════════════════════════════
-
-    // 1a: Zeiler per boot
     var zS=shuffle(zeilers);
     ib.forEach(function(b,i){ if(zS[i]) plaats(zS[i],b); });
     var extraZ=zS.slice(boten.length);
 
-    // 1b: Medisch per boot
-    // Eerst: medisch-koppelingen (kind→M bepaalt welke M op welke boot)
-    var medischNaarBootIdx={};
-    mKoppelingen.forEach(function(mk){
-      if(!medischNaarBootIdx.hasOwnProperty(mk.medischId)){
-        var minIdx=0,minCount=9999;
-        ib.forEach(function(b,idx){
-          var n=Object.keys(medischNaarBootIdx).filter(function(mid){return medischNaarBootIdx[mid]===idx;}).length;
-          if(n<minCount){minCount=n;minIdx=idx;}
-        });
-        medischNaarBootIdx[mk.medischId]=minIdx;
-      }
-    });
-    var gebruiktM={};
-    Object.keys(medischNaarBootIdx).forEach(function(mId){
-      var m=vind(medisch,mId);
-      if(m&&!gebruiktM[mId]){ if(plaats(m,ib[medischNaarBootIdx[mId]])) gebruiktM[mId]=true; }
-    });
-
-    // Resterende M: 1 per boot die nog geen M heeft
-    var mRest=shuffle(medisch.filter(function(v){return !gebruiktM[v.id];}));
+    var mS=shuffle(medisch);
     var mi=0;
-    ib.forEach(function(b){
-      if(!heeftM(b)&&mRest[mi]){ if(plaats(mRest[mi],b)){gebruiktM[mRest[mi].id]=true;mi++;} }
-    });
+    ib.forEach(function(b){ if(mS[mi]){ if(plaats(mS[mi],b)) mi++; } });
+    var extraM=mS.slice(mi);
 
-    // Controleer: elke boot heeft nu Z en M
-    var botenZonderZ=ib.filter(function(b){return !heeftZ(b);});
-    var botenZonderM=ib.filter(function(b){return !heeftM(b);});
-    if(botenZonderZ.length||botenZonderM.length){
-      // Onoplosbaar in deze poging — geef lege waarschuwing terug zodat retry het oppikt
-      if(botenZonderZ.length) warn.push('⛔ Niet genoeg Zeilers voor alle boten.');
-      if(botenZonderM.length) warn.push('⛔ Niet genoeg Medisch voor alle boten.');
+    // Controleer: elke boot heeft Z en M
+    if(ib.some(function(b){return !heeftZ(b)||!heeftM(b);})){
+      ib.filter(function(b){return !heeftZ(b);}).forEach(function(b){ warn.push('⛔ Boot "'+escHtml(b.naam)+'" heeft geen Zeiler.'); });
+      ib.filter(function(b){return !heeftM(b);}).forEach(function(b){ warn.push('⛔ Boot "'+escHtml(b.naam)+'" heeft geen Medisch.'); });
       return {ib:ib,warn:warn,score:999999};
     }
 
     // ════════════════════════════════════════════════════════
-    // FASE 2 — Nationaliteitsgroepen
-    // Regel: nationaliteit met ≥2 kinderen → altijd in duo's plaatsen,
-    // elk duo op een ANDERE boot (spreiding), nooit solo.
+    // STAP 2 — Nationaliteit duo's (nooit solo als ≥2 beschikbaar)
     // ════════════════════════════════════════════════════════
-
-    // Gekoppelde kinderen (kind→M harde koppeling) eerst plaatsen
-    var geplaatsteK={};
-    mKoppelingen.forEach(function(mk){
-      var kind=vind(beschikK,mk.kindId);
-      var bootIdx=medischNaarBootIdx[mk.medischId];
-      if(kind&&bootIdx!==undefined){
-        if(plaats(kind,ib[bootIdx])) geplaatsteK[kind.id]=true;
-        else warn.push(escHtml(kind.naam)+' kon niet op boot van gekoppelde Medisch (boot vol).');
-      }
-    });
-
-    var vrijeK=shuffle(beschikK.filter(function(k){return !geplaatsteK[k.id];}));
+    var beschikK=kinderen.filter(function(k){return !k.boerderij&&!k.buitenland&&!k.philippine;});
     var inGroep={};
     var noodEnkelen=[];
 
-    {// nationaliteitsregel altijd actief
-      var natG={};
-      vrijeK.forEach(function(k){
-        if(k.nationaliteit){
-          var nat=k.nationaliteit.toLowerCase().trim();
-          if(!natG[nat]) natG[nat]=[];
-          natG[nat].push(k);
-        }
-      });
-
-      // Stap A: maak per nationaliteit een lijst van duo's
-      var alleDuosPerNat={}; // nat -> [[k,k],[k,k],...]
-      Object.keys(natG).forEach(function(nat){
-        var groep=natG[nat];
-        if(groep.length<2) return; // enkel kind → vrij laten
-        groep.forEach(function(k){inGroep[k.id]=true;});
-        var duos=[];
-        var kopie=groep.slice();
-        while(kopie.length>0){
-          if(kopie.length===1){
-            if(duos.length>0) duos[duos.length-1].push(kopie.shift());
-            else noodEnkelen.push(kopie.shift());
-          } else {
-            duos.push([kopie.shift(),kopie.shift()]);
-          }
-        }
-        alleDuosPerNat[nat]=duos;
-      });
-
-      // Stap B: interleave duo's van verschillende nationaliteiten
-      // Zodat boten gemengd worden: oek-duo, nl-duo, oek-duo, nl-duo...
-      // Resultaat: geordende lijst van duo's afwisselend per nat
-      var geordendeDuos=[];
-      var natKeys=Object.keys(alleDuosPerNat);
-      var maxDuos=0;
-      natKeys.forEach(function(n){ if(alleDuosPerNat[n].length>maxDuos) maxDuos=alleDuosPerNat[n].length; });
-      for(var ronde=0;ronde<maxDuos;ronde++){
-        natKeys.forEach(function(nat){
-          if(alleDuosPerNat[nat][ronde]) geordendeDuos.push({nat:nat,duo:alleDuosPerNat[nat][ronde]});
-        });
+    var natG={};
+    beschikK.forEach(function(k){
+      if(k.nationaliteit){
+        var nat=k.nationaliteit.toLowerCase().trim();
+        if(!natG[nat]) natG[nat]=[];
+        natG[nat].push(k);
       }
+    });
 
-      // Stap C: plaats elk duo op boot met minste duo's van dezelfde nat én meeste ruimte
-      geordendeDuos.forEach(function(item){
-        var nat=item.nat;
-        var duo=item.duo;
-        var opties=ib.filter(function(b){return ruimte(b)>=duo.length;});
-        opties.sort(function(a,b){
-          // Primair: minste kinderen van DEZELFDE nat op die boot
-          var aNat=a.personen.filter(function(p){return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;}).length;
-          var bNat=b.personen.filter(function(p){return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;}).length;
-          if(aNat!==bNat) return aNat-bNat;
-          // Secundair: meeste ruimte
-          return ruimte(b)-ruimte(a);
-        });
-        if(opties.length){
-          var doel=opties[0];
-          duo.forEach(function(k){ if(!plaats(k,doel)) noodEnkelen.push(k); });
-        } else {
-          // Geen boot met ruimte voor duo — individueel bij andere van zelfde nat
-          duo.forEach(function(k){
-            var natOpt=ib.filter(function(b){
-              return ruimte(b)>0&&b.personen.some(function(p){
-                return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;
-              });
-            });
-            natOpt.sort(sortMeestRuimte);
-            var ok=false;
-            for(var ni=0;ni<natOpt.length;ni++){ if(plaats(k,natOpt[ni])){ok=true;break;} }
-            if(!ok) noodEnkelen.push(k);
-          });
-        }
-      });
+    // Per nat: maak duo's, interleave later
+    var alleDuosPerNat={};
+    Object.keys(natG).forEach(function(nat){
+      var groep=shuffle(natG[nat]);
+      if(groep.length<2) return; // enkel kind → vrij laten
+      groep.forEach(function(k){inGroep[k.id]=true;});
+      var duos=[];
+      var kopie=groep.slice();
+      while(kopie.length>0){
+        if(kopie.length===1){ if(duos.length>0) duos[duos.length-1].push(kopie.shift()); else noodEnkelen.push(kopie.shift()); }
+        else { duos.push([kopie.shift(),kopie.shift()]); }
+      }
+      alleDuosPerNat[nat]=duos;
+    });
+
+    // Interleave duo's van alle nationaliteiten
+    var geordendeDuos=[];
+    var natKeys=Object.keys(alleDuosPerNat);
+    var maxDuos=0;
+    natKeys.forEach(function(n){ if(alleDuosPerNat[n].length>maxDuos) maxDuos=alleDuosPerNat[n].length; });
+    for(var ronde=0;ronde<maxDuos;ronde++){
+      natKeys.forEach(function(nat){ if(alleDuosPerNat[nat][ronde]) geordendeDuos.push({nat:nat,duo:alleDuosPerNat[nat][ronde]}); });
     }
 
-    // ════════════════════════════════════════════════════════
-    // FASE 3 — Voorkeurskoppelingen kinderen
-    // ════════════════════════════════════════════════════════
-    kKoppelingen.forEach(function(kk){
-      var groep=kk.ids.map(function(id){return vind(vrijeK,id);}).filter(function(k){return k&&!inGroep[k.id];});
-      if(groep.length>=2){
-        groep.forEach(function(k){inGroep[k.id]=true;});
-        var opties=ib.filter(function(b){return ruimte(b)>=groep.length;});
-        opties.sort(function(a,b){return ruimte(a)-ruimte(b);});
-        if(opties.length){ groep.forEach(function(k){if(!plaats(k,opties[0])) noodEnkelen.push(k);}); }
-        else { groep.forEach(function(k){noodEnkelen.push(k);}); }
+    // Plaats elk duo op boot met minste van eigen nat, meeste ruimte
+    geordendeDuos.forEach(function(item){
+      var nat=item.nat; var duo=item.duo;
+      var opties=ib.filter(function(b){return ruimte(b)>=duo.length;});
+      opties.sort(function(a,b){
+        var aN=a.personen.filter(function(p){return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;}).length;
+        var bN=b.personen.filter(function(p){return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;}).length;
+        if(aN!==bN) return aN-bN;
+        return ruimte(b)-ruimte(a);
+      });
+      if(opties.length){ duo.forEach(function(k){ if(!plaats(k,opties[0])) noodEnkelen.push(k); }); }
+      else {
+        // Splits tot duo's van 2
+        var r=duo.slice();
+        while(r.length>=2){
+          var d=r.splice(0,2);
+          var o=ib.filter(function(b){return ruimte(b)>=2;});
+          o.sort(function(a,b){return ruimte(b)-ruimte(a);});
+          if(o.length){ d.forEach(function(k){if(!plaats(k,o[0])) noodEnkelen.push(k);}); }
+          else { d.forEach(function(k){noodEnkelen.push(k);}); }
+        }
+        if(r.length===1){
+          var solo=r[0];
+          var natO=ib.filter(function(b){return ruimte(b)>0&&b.personen.some(function(p){return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;});});
+          natO.sort(sortMeestRuimte);
+          var ok=false;
+          for(var ni=0;ni<natO.length;ni++){if(plaats(solo,natO[ni])){ok=true;break;}}
+          if(!ok) noodEnkelen.push(solo);
+        }
       }
     });
 
     // ════════════════════════════════════════════════════════
-    // FASE 4 — Rest verdelen (enkelen, noodEnkelen, overige volw, extra Z)
-    // Ruzie-uitsluitingen worden hier gerespecteerd
+    // STAP 3 — Personen-koppelingen (voorkeur)
     // ════════════════════════════════════════════════════════
-    var enkelen=vrijeK.filter(function(k){return !inGroep[k.id]&&!geplaatsteK[k.id];});
-    var restLijst=shuffle(enkelen.concat(noodEnkelen).concat(shuffle(overigen)).concat(extraZ));
+    var vrijeK=beschikK.filter(function(k){return !inGroep[k.id];});
+    var beschikV=shuffle(volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&v.cat!=='P'&&!v.philippine&&!vind(zS,v.id)&&!vind(mS.slice(0,mi),v.id);}).concat(extraZ).concat(extraM));
+
+    pKoppelingen.forEach(function(pk){
+      var p1=getPersoonByRef(pk.refs[0]); var p2=getPersoonByRef(pk.refs[1]);
+      if(!p1||!p2) return;
+      // Controleer of beide nog vrij zijn (niet al geplaatst)
+      var p1Geplaatst=ib.some(function(b){return b.personen.some(function(p){return p.id===p1.id;});});
+      var p2Geplaatst=ib.some(function(b){return b.personen.some(function(p){return p.id===p2.id;});});
+      if(p1Geplaatst&&p2Geplaatst) return; // beide al geplaatst, check in validatie
+      if(p1Geplaatst||p2Geplaatst){
+        // Een van beide al geplaatst — probeer de ander op dezelfde boot
+        var geplaatst=ib.find(function(b){return b.personen.some(function(p){return p.id===(p1Geplaatst?p1:p2).id;});});
+        var vrije=p1Geplaatst?p2:p1;
+        if(geplaatst&&ruimte(geplaatst)>0) plaats(vrije,geplaatst);
+      } else {
+        // Beiden vrij — zoek boot met ruimte voor 2
+        var opties=ib.filter(function(b){return ruimte(b)>=2;});
+        opties.sort(sortMeestRuimte);
+        if(opties.length){ plaats(p1,opties[0]); plaats(p2,opties[0]); }
+      }
+    });
+
+    // ════════════════════════════════════════════════════════
+    // STAP 4 — Rest verdelen (met uitsluiting-check)
+    // ════════════════════════════════════════════════════════
+    var resterendeK=vrijeK.filter(function(k){return !ib.some(function(b){return b.personen.some(function(p){return p.id===k.id;});});});
+    var resterendeV=beschikV.filter(function(v){return !ib.some(function(b){return b.personen.some(function(p){return p.id===v.id;});});});
+    var restLijst=shuffle(resterendeK.concat(noodEnkelen).concat(resterendeV));
+
     restLijst.forEach(function(p){
       var geplaatst=kies(p,function(b){return ruimte(b)>0&&magOpBoot(p,b);},sortMeestRuimte);
-      if(!geplaatst) geplaatst=kies(p,function(b){return ruimte(b)>0;},sortMeestRuimte); // noodgeval: negeer ruzie
+      if(!geplaatst) geplaatst=kies(p,function(b){return ruimte(b)>0;},sortMeestRuimte);
       if(!geplaatst) warn.push(escHtml(p.naam)+' kon niet worden ingedeeld (alle boten vol).');
     });
 
-    // Extra M verdelen
-    mRest.slice(mi).forEach(function(v){ kies(v,function(b){return ruimte(b)>0;},sortMeestRuimte); });
-
     // ════════════════════════════════════════════════════════
-    // FASE 5 — Validatie
+    // VALIDATIE
     // ════════════════════════════════════════════════════════
     ib.forEach(function(b){
-      // Harde capaciteitscheck
       if(b.personen.length>b.effectiefMax)
-        warn.push('⛔ Boot "'+escHtml(b.naam)+'" heeft '+b.personen.length+'/'+b.effectiefMax+' — OVERVOL!');
-      // Minimum
+        warn.push('⛔ Boot "'+escHtml(b.naam)+'" is overvol: '+b.personen.length+'/'+b.effectiefMax);
       if(b.personen.length<b.min)
         warn.push('Boot "'+escHtml(b.naam)+'" heeft slechts '+b.personen.length+' personen (min. '+b.min+').');
-      // Boot met kinderen maar zonder Z of M
-      if(heeftKind(b)&&!heeftZ(b))
-        warn.push('⛔ Boot "'+escHtml(b.naam)+'" heeft kinderen maar GEEN Zeiler!');
-      if(heeftKind(b)&&!heeftM(b))
-        warn.push('⛔ Boot "'+escHtml(b.naam)+'" heeft kinderen maar GEEN Medisch!');
-      // Ruzie-check
+      // Uitsluiting check
       rKoppelingen.forEach(function(r){
-        var k1=b.personen.some(function(p){return p.id===r.ids[0];});
-        var k2=b.personen.some(function(p){return p.id===r.ids[1];});
-        if(k1&&k2){
-          var n1=vind(kinderen,r.ids[0]);var n2=vind(kinderen,r.ids[1]);
-          warn.push('⚠ Conflict: '+(n1?escHtml(n1.naam):'?')+' en '+(n2?escHtml(n2.naam):'?')+' op boot "'+escHtml(b.naam)+'".');
+        var h1=b.personen.some(function(p){return refVan(p)===r.ids[0];});
+        var h2=b.personen.some(function(p){return refVan(p)===r.ids[1];});
+        if(h1&&h2){
+          var n1=getPersoonByRef(r.ids[0]); var n2=getPersoonByRef(r.ids[1]);
+          warn.push('⚠ Uitsluiting: '+(n1?escHtml(n1.naam):'?')+' en '+(n2?escHtml(n2.naam):'?')+' op boot "'+escHtml(b.naam)+'".');
         }
       });
     });
-    // Personen-koppelingen check
+    // Koppeling check
     pKoppelingen.forEach(function(pk){
-      var p1=getPersoonByRef(pk.refs[0]);var p2=getPersoonByRef(pk.refs[1]);
+      var p1=getPersoonByRef(pk.refs[0]); var p2=getPersoonByRef(pk.refs[1]);
       if(!p1||!p2) return;
-      var boot1=null,boot2=null;
-      ib.forEach(function(b){
-        if(b.personen.some(function(p){return p.id===p1.id;})) boot1=b;
-        if(b.personen.some(function(p){return p.id===p2.id;})) boot2=b;
-      });
-      if(boot1&&boot2&&boot1!==boot2)
-        warn.push('🤝 Koppeling niet gelukt: '+escHtml(p1.naam)+' en '+escHtml(p2.naam)+' op verschillende boten.');
+      var b1=ib.find(function(b){return b.personen.some(function(p){return p.id===p1.id;});});
+      var b2=ib.find(function(b){return b.personen.some(function(p){return p.id===p2.id;});});
+      if(b1&&b2&&b1!==b2) warn.push('🤝 Koppeling niet gelukt: '+escHtml(p1.naam)+' en '+escHtml(p2.naam)+' op verschillende boten.');
     });
-    // Solo-nationaliteit check
-    {// nationaliteitsregel altijd actief
-      ib.forEach(function(b){
-        var natTelling={};
-        b.personen.forEach(function(p){
-          if(p.geslacht!==undefined&&p.nationaliteit){
-            var nat=p.nationaliteit.toLowerCase().trim();
-            natTelling[nat]=(natTelling[nat]||0)+1;
-          }
-        });
-        Object.keys(natTelling).forEach(function(nat){
-          var totaal=beschikK.filter(function(k){return k.nationaliteit&&k.nationaliteit.toLowerCase().trim()===nat;}).length;
-          if(natTelling[nat]===1&&totaal>=2){
-            var soloKind=b.personen.find(function(p){return p.geslacht!==undefined&&p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;});
-            warn.push('🌍 '+escHtml(soloKind?soloKind.naam:'?')+' is als enige '+escHtml(nat)+' op boot "'+escHtml(b.naam)+'".');
-          }
-        });
+    // Solo nationaliteit check
+    ib.forEach(function(b){
+      var natTelling={};
+      b.personen.forEach(function(p){
+        if(p.geslacht!==undefined&&p.nationaliteit){
+          var nat=p.nationaliteit.toLowerCase().trim();
+          natTelling[nat]=(natTelling[nat]||0)+1;
+        }
       });
-    }
+      Object.keys(natTelling).forEach(function(nat){
+        var totaal=beschikK.filter(function(k){return k.nationaliteit&&k.nationaliteit.toLowerCase().trim()===nat;}).length;
+        if(natTelling[nat]===1&&totaal>=2){
+          var solo=b.personen.find(function(p){return p.geslacht!==undefined&&p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;});
+          warn.push('🌍 '+escHtml(solo?solo.naam:'?')+' is als enige '+escHtml(nat)+' op boot "'+escHtml(b.naam)+'".');
+        }
+      });
+    });
 
     return {ib:ib,warn:warn,score:scorePoging(ib,warn)};
   }
+
 
 
 
@@ -1015,8 +871,6 @@ function personRij(p){
   var b=p.cat?badge(p.cat):badge(p.geslacht==='J'?'J':'Mv',p.geslacht);
   var mv=p.mv?' '+badge('mplus','m+'):'';
   var nat=(!p.cat&&p.nationaliteit)?' <span style="font-size:10px;color:#5a8aaa">'+escHtml(p.nationaliteit)+'</span>':'';
-  var heeftKK=kKoppelingen.some(function(k){return k.ids.indexOf(p.id)!==-1;});
-  var heeftMK=mKoppelingen.some(function(k){return k.kindId===p.id||k.medischId===p.id;});
   var heeftRK=rKoppelingen.some(function(r){return r.ids.indexOf(p.id)!==-1;});
   var kBadge=heeftKK?' <span class="badge badge-koppel">🔗</span>':'';
   var mBadge=heeftMK?' <span class="badge badge-medkop">⚠️</span>':'';
@@ -1244,8 +1098,8 @@ function exportJson() {
     volwassenen: volwassenen,
     kinderen: kinderen,
     boten: boten,
-    kKoppelingen: kKoppelingen,
-    mKoppelingen: mKoppelingen,
+    
+    
     rKoppelingen: rKoppelingen,
     pKoppelingen: pKoppelingen
   };
@@ -1276,8 +1130,8 @@ function importJson(event) {
       volwassenen  = data.volwassenen  || [];
       kinderen     = data.kinderen     || [];
       boten        = data.boten        || [];
-      kKoppelingen = data.kKoppelingen || [];
-      mKoppelingen = data.mKoppelingen || [];
+      
+      
       rKoppelingen = data.rKoppelingen || [];
       pKoppelingen = data.pKoppelingen || [];
       renderVol(); renderKin(); renderBoten();
@@ -1294,7 +1148,7 @@ function importJson(event) {
 function slaOp() {
   var data = {
     volwassenen: volwassenen, kinderen: kinderen, boten: boten,
-    kKoppelingen: kKoppelingen, mKoppelingen: mKoppelingen,
+     
     rKoppelingen: rKoppelingen, pKoppelingen: pKoppelingen
   };
   try {
@@ -1313,8 +1167,6 @@ function laadOp() {
     volwassenen   = data.volwassenen   || [];
     kinderen      = data.kinderen      || [];
     boten         = data.boten         || [];
-    kKoppelingen  = data.kKoppelingen  || [];
-    mKoppelingen  = data.mKoppelingen  || [];
     rKoppelingen  = data.rKoppelingen  || [];
     pKoppelingen  = data.pKoppelingen  || [];
     renderVol(); renderKin(); renderBoten();
@@ -1329,7 +1181,7 @@ function wisData() {
   if (!confirm('Weet je zeker dat je alle ingevoerde data wilt wissen?')) return;
   localStorage.removeItem('zomerkamp_data');
   volwassenen=[]; kinderen=[]; boten=[];
-  kKoppelingen=[]; mKoppelingen=[]; rKoppelingen=[]; pKoppelingen=[];
+  rKoppelingen=[]; pKoppelingen=[];
   renderVol(); renderKin(); renderBoten();
   renderKKoppelingen(); renderMKoppelingen(); renderRKoppelingen(); renderPKoppelingen();
   document.getElementById('indelingMsgs').innerHTML='';
