@@ -1055,11 +1055,17 @@ function exportXlsx() {
   if (!_lastIndeling) { alert('Genereer eerst een indeling.'); return; }
   var ind = _lastIndeling;
 
+  // Verwijder emoji's uit tekst voor Excel
+  function stripEmoji(s) {
+    return String(s||'').replace(/[\u{1F000}-\u{1FFFF}]/gu,'').replace(/[\u2600-\u27BF]/g,'').trim();
+  }
+
   // Bouw rijen
   var rijen = [['Boot/Locatie','Naam','Type','Geslacht/Cat','Nationaliteit','m+']];
   ind.boten.forEach(function(b) {
+    var bootnaam = stripEmoji(b.naam);
     b.personen.forEach(function(p) {
-      rijen.push([b.naam, p.naam, p.cat?'Volwassene':'Kind', p.cat||p.geslacht, p.nationaliteit||'', p.mv?'m+':'']);
+      rijen.push([bootnaam, p.naam, p.cat?'Volwassene':'Kind', p.cat||p.geslacht, p.nationaliteit||'', p.mv?'m+':'']);
     });
   });
   ind.philippine.forEach(function(p) {
@@ -1316,6 +1322,13 @@ function downloadVoorbeeldExcel() {
 }
 
 function escXml(s) {
+  s = String(s);
+  // Verwijder illegale XML-tekens (control chars behalve tab/newline)
+  s = s.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  // Verwijder emoji's en andere tekens buiten het basis XML-bereik
+  s = s.replace(/[\uD800-\uDFFF]/g, ''); // surrogaat-paren
+  s = s.replace(/[^\u0009\u000A\u000D\u0020-\uD7FF\uE000-\uFFFD]/g, '');
+  // Standaard XML-escaping
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
