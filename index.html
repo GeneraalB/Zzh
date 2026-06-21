@@ -1076,27 +1076,34 @@ function exportXlsx() {
   if (!_lastIndeling) { alert('Genereer eerst een indeling.'); return; }
   var ind = _lastIndeling;
 
-  // Verwijder emoji's uit tekst voor Excel
+  // Verwijder emoji's en pictogrammen uit tekst voor Excel
   function stripEmoji(s) {
-    return String(s||'').replace(/[\u{1F000}-\u{1FFFF}]/gu,'').replace(/[\u2600-\u27BF]/g,'').trim();
+    return String(s||'')
+      .replace(/[\u{1F000}-\u{1FFFF}]/gu,'')
+      .replace(/[\u2600-\u27BF]/g,'')
+      .replace(/[\u{1F300}-\u{1F9FF}]/gu,'')
+      .replace(/[\u{2700}-\u{27BF}]/gu,'')
+      .trim();
   }
 
-  // Bouw rijen
+  // Bouw rijen — stripEmoji op alle velden
   var rijen = [['Boot/Locatie','Naam','Type','Geslacht/Cat','Nationaliteit','m+']];
   ind.boten.forEach(function(b) {
     var bootnaam = stripEmoji(b.naam);
     b.personen.forEach(function(p) {
-      rijen.push([bootnaam, p.naam, p.cat?'Volwassene':'Kind', p.cat||p.geslacht, p.nationaliteit||'', p.mv?'m+':'']);
+      rijen.push([bootnaam, stripEmoji(p.naam), p.cat?'Volwassene':'Kind', p.cat||p.geslacht, stripEmoji(p.nationaliteit||''), p.mv?'m+':'']);
     });
   });
   ind.philippine.forEach(function(p) {
-    rijen.push(['Philippine', p.naam, p.cat?'Volwassene':'Kind', p.cat||p.geslacht||'', p.nationaliteit||'', p.mv?'m+':'']);
+    rijen.push(['Philippine', stripEmoji(p.naam), p.cat?'Volwassene':'Kind', p.cat||p.geslacht||'', stripEmoji(p.nationaliteit||''), p.mv?'m+':'']);
   });
   ind.boerderij.forEach(function(p) {
-    var k=!p.cat; rijen.push(['Boerderij', p.naam, k?'Kind':'Volwassene', k?p.geslacht:p.cat, p.nationaliteit||'', p.mv?'m+':'']);
+    var k=!p.cat;
+    rijen.push(['Boerderij', stripEmoji(p.naam), k?'Kind':'Volwassene', k?p.geslacht:p.cat, stripEmoji(p.nationaliteit||''), p.mv?'m+':'']);
   });
   ind.buitenland.forEach(function(p) {
-    var k=!p.cat; rijen.push(['Buitenland', p.naam, k?'Kind':'Volwassene', k?p.geslacht:p.cat, p.nationaliteit||'', p.mv?'m+':'']);
+    var k=!p.cat;
+    rijen.push(['Buitenland', stripEmoji(p.naam), k?'Kind':'Volwassene', k?p.geslacht:p.cat, stripEmoji(p.nationaliteit||''), p.mv?'m+':'']);
   });
 
   // Bouw echte xlsx via Office Open XML + ZIP
