@@ -536,8 +536,6 @@ function renderRKoppelingen() {
 }
 function delRK(id){rKoppelingen=rKoppelingen.filter(function(r){return r.id!==id;});renderRKoppelingen();}
 
-
-}
 function renderPKoppelingen() {
   var el=document.getElementById('pKoppelingLijst');
   if (!pKoppelingen.length){el.innerHTML='<div class="leeg">Nog geen koppelingen</div>';return;}
