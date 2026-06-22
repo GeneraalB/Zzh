@@ -564,6 +564,7 @@ function genereer() {
   var boerderij=volwassenen.filter(function(v){return v.boerderij;}).concat(kinderen.filter(function(k){return k.boerderij;}));
   var buitenland=volwassenen.filter(function(v){return v.buitenland;}).concat(kinderen.filter(function(k){return k.buitenland;}));
   var beschikV=volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&v.cat!=='P'&&!v.philippine;});
+  var beschikK=kinderen.filter(function(k){return !k.boerderij&&!k.buitenland&&!k.philippine;});
   var zeilers=beschikV.filter(function(v){return v.cat==='Z';});
   var medisch=beschikV.filter(function(v){return v.cat==='M';});
 
@@ -658,7 +659,6 @@ function genereer() {
     // ════════════════════════════════════════════════════════
     // STAP 2 — Nationaliteit duo's (nooit solo als ≥2 beschikbaar)
     // ════════════════════════════════════════════════════════
-    var beschikK=kinderen.filter(function(k){return !k.boerderij&&!k.buitenland&&!k.philippine;});
     var inGroep={};
     var noodEnkelen=[];
 
@@ -731,7 +731,7 @@ function genereer() {
     // STAP 3 — Personen-koppelingen (voorkeur)
     // ════════════════════════════════════════════════════════
     var vrijeK=beschikK.filter(function(k){return !inGroep[k.id];});
-    var beschikV=shuffle(volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&v.cat!=='P'&&!v.philippine&&!vind(zS,v.id)&&!vind(mS.slice(0,mi),v.id);}).concat(extraZ).concat(extraM));
+    var resterendV=shuffle(volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&v.cat!=='P'&&!v.philippine&&!vind(zS,v.id)&&!vind(mS.slice(0,mi),v.id);}).concat(extraZ).concat(extraM));
 
     pKoppelingen.forEach(function(pk){
       var p1=getPersoonByRef(pk.refs[0]); var p2=getPersoonByRef(pk.refs[1]);
@@ -757,7 +757,7 @@ function genereer() {
     // STAP 4 — Rest verdelen (met uitsluiting-check)
     // ════════════════════════════════════════════════════════
     var resterendeK=vrijeK.filter(function(k){return !ib.some(function(b){return b.personen.some(function(p){return p.id===k.id;});});});
-    var resterendeV=beschikV.filter(function(v){return !ib.some(function(b){return b.personen.some(function(p){return p.id===v.id;});});});
+    var resterendeV=resterendV.filter(function(v){return !ib.some(function(b){return b.personen.some(function(p){return p.id===v.id;});});});
     var restLijst=shuffle(resterendeK.concat(noodEnkelen).concat(resterendeV));
 
     restLijst.forEach(function(p){
