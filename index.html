@@ -869,11 +869,12 @@ function personRij(p){
   var b=p.cat?badge(p.cat):badge(p.geslacht==='J'?'J':'Mv',p.geslacht);
   var mv=p.mv?' '+badge('mplus','m+'):'';
   var nat=(!p.cat&&p.nationaliteit)?' <span style="font-size:10px;color:#5a8aaa">'+escHtml(p.nationaliteit)+'</span>':'';
-  var heeftRK=rKoppelingen.some(function(r){return r.ids.indexOf(p.id)!==-1;});
-  var kBadge=heeftKK?' <span class="badge badge-koppel">🔗</span>':'';
-  var mBadge=heeftMK?' <span class="badge badge-medkop">⚠️</span>':'';
+  var ref=p.cat?'v_'+p.id:'k_'+p.id;
+  var heeftPK=pKoppelingen.some(function(pk){return pk.refs.indexOf(ref)!==-1;});
+  var heeftRK=rKoppelingen.some(function(r){return r.ids.indexOf(ref)!==-1;});
+  var kBadge=heeftPK?' <span class="badge badge-koppel">🤝</span>':'';
   var rBadge=heeftRK?' <span class="badge badge-ruzie">🚫</span>':'';
-  return '<div class="boot-persoon"><span class="naam">'+escHtml(p.naam)+'</span>'+b+nat+mv+kBadge+mBadge+rBadge+'</div>';
+  return '<div class="boot-persoon"><span class="naam">'+escHtml(p.naam)+'</span>'+b+nat+mv+kBadge+rBadge+'</div>';
 }
 
 function bootCard(naam,personen,isPhil,min,effectiefMax,origMax){
