@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v2.1 -->
+<!-- v3.0 -->
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
@@ -60,7 +60,6 @@ body {
 .badge-mplus { background:#2a2000; color:#fcc419; border:1px solid #5a4500; font-style:italic; }
 .badge-ruzie { background:#3d0808; color:#ff6b6b; border:1px solid #7a1010; font-size:10px; }
 .badge-koppel { background:#102a10; color:#69db7c; border:1px solid #1a5a1a; font-size:10px; }
-.badge-medkop { background:#3a0a3a; color:#da77f2; border:1px solid #6a1a6a; font-size:10px; }
 .badge-row { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:10px; }
 .lijst { max-height: 220px; overflow-y: auto; margin-bottom: 10px; }
 .lijst-item {
@@ -104,6 +103,7 @@ select option { background: #081526; }
 .msg-ok   { background:#0a3020; border:1px solid #1a7040; color:#51cf66; }
 .msg-err  { background:#3d0808; border:1px solid #7a1010; color:#ff6b6b; }
 .msg-warn { background:#3d2800; border:1px solid #7a5000; color:#fcc419; }
+.msg-info { background:#0a2030; border:1px solid #1a5070; color:#4dabf7; }
 .stats {
   display: flex; gap: 16px; flex-wrap: wrap;
   padding: 10px 16px; background: #0c1e35; border: 1px solid #1a3050;
@@ -261,7 +261,7 @@ select option { background: #081526; }
     <div style="max-width:520px">
       <div class="card">
         <div class="card-title">⛵ Valken / Randmeren</div>
-        <p class="hint">Elke boot krijgt automatisch ≥1 Zeiler (Z). Een Medisch-persoon (M) wordt alleen toegewezen aan boten <em>met kinderen</em>. Een boot met een m+-kind heeft automatisch max−1 capaciteit.</p>
+        <p class="hint">Elke boot krijgt automatisch <strong>≥1 Zeiler (Z)</strong> én <strong>≥1 Medisch (M)</strong> — dit is een harde eis. Een boot met een m+-kind heeft automatisch max−1 capaciteit.</p>
         <div class="lijst" id="bLijst"><div class="leeg">Nog geen boten</div></div>
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px;align-items:end">
           <div class="form-col"><label class="lbl">Naam</label><input type="text" id="bNaam" placeholder="bijv. Valk 1" onkeydown="if(event.key==='Enter')addBoot()"></div>
@@ -314,7 +314,8 @@ select option { background: #081526; }
   <div id="tab-indeling" class="tab-panel">
     <div class="btn-row">
       <button class="btn-gold big" id="btnGen" onclick="genereer()">🎲 Genereer indeling</button>
-      <button id="btnExport" onclick="exportXlsx()" style="display:none;background:transparent;border:1px solid #51cf66;color:#51cf66;padding:9px 16px;border-radius:4px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">⬇ Download CSV</button>
+      <button id="btnExport" onclick="exportCsv()" style="display:none;background:transparent;border:1px solid #51cf66;color:#51cf66;padding:9px 16px;border-radius:4px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">⬇ Download CSV</button>
+      <button id="btnResetHist" onclick="resetGeschiedenis()" style="display:none;background:transparent;border:1px solid #7a5000;color:#fcc419;padding:9px 16px;border-radius:4px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit">↺ Reset rondes</button>
       <span id="rondeInfo" style="font-size:12px;color:#3a6080"></span>
     </div>
     <div id="indelingMsgs"></div>
@@ -324,15 +325,20 @@ select option { background: #081526; }
 </div>
 
 <script>
+// ════════════════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════════════════
 var volwassenen = [], kinderen = [];
-// Standaard 11 boten
-var boten = [1,2,3,4,5,6,7,8,9,10,11].map(function(n){
-  return {id:uid(), naam:String(n), min:4, max:6};
-});
-var pKoppelingen = []; // personen samen
-var rKoppelingen = []; // personen uit elkaar
+var boten = [1,2,3,4,5,6,7,8,9,10,11].map(function(n){ return {id:uid(), naam:String(n), min:4, max:6}; });
+var pKoppelingen = [];           // personen die samen moeten (voorkeur)
+var rKoppelingen = [];           // personen die uit elkaar moeten (voorkeur)
 var rondeNr = 0;
+var historieSignaturen = {};     // samenstellingen uit vorige rondes (eis 4: geen herhaling)
+var _lastIndeling = null;        // laatste indeling t.b.v. CSV-export
 
+// ════════════════════════════════════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════════════════════════════════════
 function uid() { return Math.random().toString(36).slice(2,9); }
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -346,8 +352,15 @@ function vind(arr, id) {
   for (var i=0;i<arr.length;i++) if (arr[i].id===id) return arr[i];
   return null;
 }
+function isKind(p)  { return p.geslacht !== undefined; }
+function refVan(p)  { return isKind(p) ? 'k_'+p.id : 'v_'+p.id; }
+function natKey(p)  { return (isKind(p) && p.nationaliteit) ? p.nationaliteit.toLowerCase().trim() : null; }
+// Canonieke handtekening van een bootsamenstelling (volgorde-onafhankelijk)
+function bootSignatuur(personen) { return personen.map(refVan).sort().join('|'); }
 
-// ── TABS ──
+// ════════════════════════════════════════════════════════════════════════
+//  TABS
+// ════════════════════════════════════════════════════════════════════════
 function toon(naam, btn) {
   document.querySelectorAll('.tab-panel').forEach(function(p){p.classList.remove('active');});
   document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
@@ -356,13 +369,14 @@ function toon(naam, btn) {
   if (naam==='koppelingen') vulKoppelingSelects();
 }
 
-// ── BADGE ──
 function badge(type, label) {
   var t = (label!==undefined) ? label : type;
   return '<span class="badge badge-'+type+'">'+escHtml(t)+'</span>';
 }
 
-// ── VOLWASSENEN ──
+// ════════════════════════════════════════════════════════════════════════
+//  VOLWASSENEN
+// ════════════════════════════════════════════════════════════════════════
 function addVol() {
   var naam = document.getElementById('vNaam').value.trim();
   if (!naam){alert('Vul een naam in.');return;}
@@ -391,17 +405,20 @@ function renderVol() {
       +'</div>';
   }).join('');
 }
-
 function toggleVol(id, veld, waarde) {
   var v = vind(volwassenen, id);
   if (v) { v[veld] = waarde; renderVol(); }
 }
 function delVol(id) {
   volwassenen=volwassenen.filter(function(v){return v.id!==id;});
-  renderVol(); renderMKoppelingen();
+  pKoppelingen=pKoppelingen.filter(function(p){return p.refs.indexOf('v_'+id)===-1;});
+  rKoppelingen=rKoppelingen.filter(function(r){return r.ids.indexOf('v_'+id)===-1;});
+  renderVol(); renderPKoppelingen(); renderRKoppelingen();
 }
 
-// ── KINDEREN ──
+// ════════════════════════════════════════════════════════════════════════
+//  KINDEREN
+// ════════════════════════════════════════════════════════════════════════
 function addKin() {
   var naam=document.getElementById('kNaam').value.trim();
   if (!naam){alert('Vul een naam in.');return;}
@@ -436,18 +453,20 @@ function renderKin() {
       +'</div>';
   }).join('');
 }
-
 function toggleKin(id, veld, waarde) {
   var k = vind(kinderen, id);
   if (k) { k[veld] = waarde; renderKin(); }
 }
 function delKin(id) {
   kinderen=kinderen.filter(function(k){return k.id!==id;});
-  rKoppelingen=rKoppelingen.filter(function(r){return r.ids.indexOf(id)===-1;});
-  renderKin(); renderKKoppelingen(); renderMKoppelingen(); renderRKoppelingen();
+  pKoppelingen=pKoppelingen.filter(function(p){return p.refs.indexOf('k_'+id)===-1;});
+  rKoppelingen=rKoppelingen.filter(function(r){return r.ids.indexOf('k_'+id)===-1;});
+  renderKin(); renderPKoppelingen(); renderRKoppelingen();
 }
 
-// ── BOTEN ──
+// ════════════════════════════════════════════════════════════════════════
+//  BOTEN
+// ════════════════════════════════════════════════════════════════════════
 function addBoot() {
   var naam=document.getElementById('bNaam').value.trim();
   if (!naam){alert('Geef een naam op.');return;}
@@ -468,7 +487,9 @@ function renderBoten() {
 }
 function delBoot(id) { boten=boten.filter(function(b){return b.id!==id;}); renderBoten(); }
 
-// ── KOPPELINGSELECTS VULLEN ──
+// ════════════════════════════════════════════════════════════════════════
+//  KOPPELING-SELECTS
+// ════════════════════════════════════════════════════════════════════════
 function vulKoppelingSelects() {
   var allePersonen = [];
   volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&v.cat!=='P'&&!v.philippine;})
@@ -485,8 +506,13 @@ function vulKoppelingSelects() {
     });
   });
 }
+function getPersoonByRef(ref) {
+  if (ref.indexOf('v_')===0) return vind(volwassenen, ref.slice(2));
+  if (ref.indexOf('k_')===0) return vind(kinderen, ref.slice(2));
+  return null;
+}
 
-// ── PERSONEN KOPPELING ──
+// ── PERSONEN KOPPELEN (samen) ──
 function addPKoppeling() {
   var ref1=document.getElementById('pk1').value;
   var ref2=document.getElementById('pk2').value;
@@ -497,24 +523,20 @@ function addPKoppeling() {
   pKoppelingen.push({id:uid(),refs:[ref1,ref2]});
   renderPKoppelingen();
 }
-function getPersoonByRef(ref) {
-  if (ref.indexOf('v_')===0) return vind(volwassenen, ref.slice(2));
-  if (ref.indexOf('k_')===0) return vind(kinderen, ref.slice(2));
-  return null;
-}
 function renderPKoppelingen() {
   var el=document.getElementById('pKoppelingLijst');
   if (!pKoppelingen.length){el.innerHTML='<div class="leeg">Nog geen koppelingen</div>';return;}
   el.innerHTML=pKoppelingen.map(function(p){
     var n1=getPersoonByRef(p.refs[0]); var n2=getPersoonByRef(p.refs[1]);
-    return '<div class="koppel-rij"><span class="koppel-namen">🤝 '+(n1?escHtml(n1.naam):'?')+' + '+(n2?escHtml(n2.naam):'?')+'</span>'
+    var namen=(n1?escHtml(n1.naam):'?')+' 🤝 '+(n2?escHtml(n2.naam):'?');
+    return '<div class="koppel-rij"><span class="koppel-namen">'+namen+'</span>'
       +'<span class="koppel-type">voorkeur</span>'
       +'<button class="btn-del" onclick="delPK(\''+p.id+'\')">✕</button></div>';
   }).join('');
 }
 function delPK(id){pKoppelingen=pKoppelingen.filter(function(p){return p.id!==id;});renderPKoppelingen();}
 
-// ── PERSONEN UITSLUITING ──
+// ── PERSONEN UITSLUITEN (uit elkaar) ──
 function addRKoppeling() {
   var ref1=document.getElementById('rk1').value;
   var ref2=document.getElementById('rk2').value;
@@ -530,36 +552,26 @@ function renderRKoppelingen() {
   if (!rKoppelingen.length){el.innerHTML='<div class="leeg">Nog geen uitsluitingen</div>';return;}
   el.innerHTML=rKoppelingen.map(function(r){
     var n1=getPersoonByRef(r.ids[0]); var n2=getPersoonByRef(r.ids[1]);
-    return '<div class="koppel-rij" style="border-color:#3d1010"><span class="koppel-namen">🚫 '+(n1?escHtml(n1.naam):'?')+' ≠ '+(n2?escHtml(n2.naam):'?')+'</span>'
+    return '<div class="koppel-rij" style="border-color:#3d1010"><span class="koppel-namen">'+(n1?escHtml(n1.naam):'?')+' 🚫 '+(n2?escHtml(n2.naam):'?')+'</span>'
       +'<span class="koppel-type" style="color:#ff6b6b">uitsluiting</span>'
       +'<button class="btn-del" onclick="delRK(\''+r.id+'\')">✕</button></div>';
   }).join('');
 }
 function delRK(id){rKoppelingen=rKoppelingen.filter(function(r){return r.id!==id;});renderRKoppelingen();}
 
-function renderPKoppelingen() {
-  var el=document.getElementById('pKoppelingLijst');
-  if (!pKoppelingen.length){el.innerHTML='<div class="leeg">Nog geen koppelingen</div>';return;}
-  el.innerHTML=pKoppelingen.map(function(p){
-    var n1=getPersoonByRef(p.refs[0]); var n2=getPersoonByRef(p.refs[1]);
-    var namen=(n1?escHtml(n1.naam):'?')+' 🤝 '+(n2?escHtml(n2.naam):'?');
-    return '<div class="koppel-rij"><span class="koppel-namen">'+namen+'</span>'
-      +'<span class="koppel-type">voorkeur</span>'
-      +'<button class="btn-del" onclick="delPK(\''+p.id+'\')">✕</button></div>';
-  }).join('');
-}
-function delPK(id){pKoppelingen=pKoppelingen.filter(function(p){return p.id!==id;});renderPKoppelingen();}
-
-// ── GENEREER ──
+// ════════════════════════════════════════════════════════════════════════
+//  GENEREER  —  prioriteit:
+//    1. elke boot ≥1 Zeiler + ≥1 Medisch   (hard)
+//    2. nooit een kind solo van zijn nationaliteit als er ≥2 in de pool zijn
+//    3. nationaliteiten mengen (liever veel boten met een duo dan weinig met een klomp)
+//    4. geen boot met dezelfde samenstelling als in een eerdere ronde
+// ════════════════════════════════════════════════════════════════════════
 function genereer() {
-  rondeNr++;
   var msgsEl=document.getElementById('indelingMsgs');
   var outEl=document.getElementById('indelingOutput');
   msgsEl.innerHTML=''; outEl.innerHTML='';
-  document.getElementById('rondeInfo').textContent='Ronde '+rondeNr;
-  document.getElementById('btnGen').textContent='🔀 Opnieuw genereren';
-  document.getElementById('btnExport').style.display='inline-block';
 
+  // Pools opdelen
   var philippine=volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&(v.cat==='P'||v.philippine);})
     .concat(kinderen.filter(function(k){return k.philippine&&!k.boerderij&&!k.buitenland;}));
   var boerderij=volwassenen.filter(function(v){return v.boerderij;}).concat(kinderen.filter(function(k){return k.boerderij;}));
@@ -569,9 +581,9 @@ function genereer() {
   var zeilers=beschikV.filter(function(v){return v.cat==='Z';});
   var medisch=beschikV.filter(function(v){return v.cat==='M';});
 
-  // Validatie
+  // Harde voorcontrole
   var errors=[];
-  if (!boten.length) errors.push('Voeg eerst boten toe (tab ② Boten).');
+  if (!boten.length) errors.push('Voeg eerst boten toe (tab ②).');
   if (zeilers.length<boten.length) errors.push('Te weinig Zeilers (Z): '+zeilers.length+' beschikbaar, '+boten.length+' nodig.');
   if (medisch.length<boten.length) errors.push('Te weinig Medisch (M): '+medisch.length+' beschikbaar, '+boten.length+' nodig.');
   if (errors.length){
@@ -579,24 +591,41 @@ function genereer() {
     return;
   }
 
-  // ── SCORE FUNCTIE: lager = beter ──
-  function scorePoging(ib, warn) {
-    var score = warn.length * 100;
-    // Solo-kind van nationaliteit met >=2 beschikbaar: zwaar bestraffen
+  // ── Totaal aantal kinderen per nationaliteit (voor solo-detectie) ──
+  function totaalVanNat(nat){
+    return beschikK.filter(function(k){return natKey(k)===nat;}).length;
+  }
+
+  // ── SCORE: lager = beter. Gewichten weerspiegelen de prioriteitsvolgorde. ──
+  function scorePoging(ib) {
+    var score = 0;
     ib.forEach(function(b){
-      var natTelling={};
-      b.personen.forEach(function(p){
-        if(p.geslacht!==undefined&&p.nationaliteit){
-          var nat=p.nationaliteit.toLowerCase().trim();
-          natTelling[nat]=(natTelling[nat]||0)+1;
-        }
+      // nationaliteit-telling op deze boot
+      var telling={};
+      b.personen.forEach(function(p){ var n=natKey(p); if(n) telling[n]=(telling[n]||0)+1; });
+      Object.keys(telling).forEach(function(n){
+        if (telling[n]===1 && totaalVanNat(n)>=2) score += 10000;   // eis 2: solo terwijl pool ≥2
+        if (telling[n]>2)                         score += (telling[n]-2)*100; // eis 3: klont
       });
-      Object.keys(natTelling).forEach(function(nat){
-        var totaalVanNat=beschikK.filter(function(k){return k.nationaliteit&&k.nationaliteit.toLowerCase().trim()===nat;}).length;
-        if(natTelling[nat]===1 && totaalVanNat>=2){
-          score += 1000;
-        }
+      if (b.personen.length < b.min) score += 5000;                 // onder minimum
+      var sig=bootSignatuur(b.personen);
+      if (sig && historieSignaturen[sig]) score += 50;              // eis 4: herhaling
+    });
+    // uitsluitingen geschonden
+    rKoppelingen.forEach(function(r){
+      ib.forEach(function(b){
+        var h1=b.personen.some(function(p){return refVan(p)===r.ids[0];});
+        var h2=b.personen.some(function(p){return refVan(p)===r.ids[1];});
+        if(h1&&h2) score += 2000;
       });
+    });
+    // koppelingen niet gehaald
+    pKoppelingen.forEach(function(pk){
+      var p1=getPersoonByRef(pk.refs[0]), p2=getPersoonByRef(pk.refs[1]);
+      if(!p1||!p2) return;
+      var b1=ib.find(function(b){return b.personen.indexOf(p1)!==-1;});
+      var b2=ib.find(function(b){return b.personen.indexOf(p2)!==-1;});
+      if(b1&&b2&&b1!==b2) score += 500;
     });
     return score;
   }
@@ -610,10 +639,11 @@ function genereer() {
     function ruimte(b){ return b.effectiefMax-b.personen.length; }
     function heeftZ(b){ return b.personen.some(function(p){return p.cat==='Z';}); }
     function heeftM(b){ return b.personen.some(function(p){return p.cat==='M';}); }
-    function refVan(p){ return p.cat ? 'v_'+p.id : 'k_'+p.id; }
+    function telNat(b,nat){ return b.personen.filter(function(p){return natKey(p)===nat;}).length; }
+    function isGeplaatst(p){ return ib.some(function(b){return b.personen.indexOf(p)!==-1;}); }
+    function sortMeestRuimte(a,b){ return ruimte(b)-ruimte(a); }
 
     function magOpBoot(p,b){
-      // Uitsluiting: controleer rKoppelingen op basis van ref
       var ref=refVan(p);
       return rKoppelingen.every(function(r){
         if(r.ids.indexOf(ref)===-1) return true;
@@ -621,8 +651,7 @@ function genereer() {
         return !b.personen.some(function(q){return refVan(q)===anderRef;});
       });
     }
-
-    // Centrale plaatsingsfunctie — weigert altijd bij overschrijding
+    // plaatst alleen als er ruimte is (respecteert effectiefMax)
     function plaats(p,b){
       if(ruimte(b)<=0) return false;
       b.personen.push(p);
@@ -632,221 +661,157 @@ function genereer() {
     }
     function kies(p,filterFn,sortFn){
       var opties=ib.filter(filterFn||function(b){return ruimte(b)>0;});
-      opties.sort(sortFn||function(a,b){return ruimte(b)-ruimte(a);});
+      opties.sort(sortFn||sortMeestRuimte);
       for(var i=0;i<opties.length;i++){ if(plaats(p,opties[i])) return opties[i]; }
       return null;
     }
-    function sortMeestRuimte(a,b){return ruimte(b)-ruimte(a);}
 
-    // ════════════════════════════════════════════════════════
-    // STAP 1 — Elke boot: 1 Zeiler + 1 Medisch (harde eis)
-    // ════════════════════════════════════════════════════════
+    // ── STAP 1 — elke boot 1 Zeiler + 1 Medisch (harde eis) ──
     var zS=shuffle(zeilers);
     ib.forEach(function(b,i){ if(zS[i]) plaats(zS[i],b); });
-    var extraZ=zS.slice(boten.length);
+    var mS=shuffle(medisch); var mi=0;
+    ib.forEach(function(b){ if(mi<mS.length && plaats(mS[mi],b)) mi++; });
 
-    var mS=shuffle(medisch);
-    var mi=0;
-    ib.forEach(function(b){ if(mS[mi]){ if(plaats(mS[mi],b)) mi++; } });
-    var extraM=mS.slice(mi);
-
-    // Controleer: elke boot heeft Z en M
     if(ib.some(function(b){return !heeftZ(b)||!heeftM(b);})){
-      ib.filter(function(b){return !heeftZ(b);}).forEach(function(b){ warn.push('⛔ Boot "'+escHtml(b.naam)+'" heeft geen Zeiler.'); });
-      ib.filter(function(b){return !heeftM(b);}).forEach(function(b){ warn.push('⛔ Boot "'+escHtml(b.naam)+'" heeft geen Medisch.'); });
-      return {ib:ib,warn:warn,score:999999};
+      return {ib:ib,warn:['⛔ Niet elke boot kreeg een Zeiler én Medisch.'],score:999999};
     }
 
-    // ════════════════════════════════════════════════════════
-    // STAP 2 — Nationaliteit duo's (nooit solo als ≥2 beschikbaar)
-    // ════════════════════════════════════════════════════════
-    var inGroep={};
-    var noodEnkelen=[];
-
+    // ── STAP 2 — nationaliteit-duo's, gemengd over boten ──
     var natG={};
-    beschikK.forEach(function(k){
-      if(k.nationaliteit){
-        var nat=k.nationaliteit.toLowerCase().trim();
-        if(!natG[nat]) natG[nat]=[];
-        natG[nat].push(k);
-      }
-    });
+    beschikK.forEach(function(k){ var n=natKey(k); if(n){ (natG[n]=natG[n]||[]).push(k); } });
 
-    // Per nat: maak duo's, interleave later
-    var alleDuosPerNat={};
+    var duosPerNat={};
     Object.keys(natG).forEach(function(nat){
       var groep=shuffle(natG[nat]);
-      if(groep.length<2) return; // enkel kind → vrij laten
-      groep.forEach(function(k){inGroep[k.id]=true;});
-      var duos=[];
-      var kopie=groep.slice();
-      while(kopie.length>0){
-        if(kopie.length===1){ if(duos.length>0) duos[duos.length-1].push(kopie.shift()); else noodEnkelen.push(kopie.shift()); }
-        else { duos.push([kopie.shift(),kopie.shift()]); }
-      }
-      alleDuosPerNat[nat]=duos;
+      if(groep.length<2) return; // enkel kind in de pool → mag solo (eis 2-uitzondering)
+      var duos=[], kopie=groep.slice();
+      while(kopie.length>=2) duos.push([kopie.shift(),kopie.shift()]);
+      if(kopie.length===1) duos[duos.length-1].push(kopie.shift()); // oneven → trio
+      duosPerNat[nat]=duos;
     });
 
-    // Interleave duo's van alle nationaliteiten
-    var geordendeDuos=[];
-    var natKeys=Object.keys(alleDuosPerNat);
-    var maxDuos=0;
-    natKeys.forEach(function(n){ if(alleDuosPerNat[n].length>maxDuos) maxDuos=alleDuosPerNat[n].length; });
-    for(var ronde=0;ronde<maxDuos;ronde++){
-      natKeys.forEach(function(nat){ if(alleDuosPerNat[nat][ronde]) geordendeDuos.push({nat:nat,duo:alleDuosPerNat[nat][ronde]}); });
-    }
+    // interleave de duo's van alle nationaliteiten → spreiden over boten
+    var natKeys=Object.keys(duosPerNat);
+    var maxLen=0; natKeys.forEach(function(n){ if(duosPerNat[n].length>maxLen) maxLen=duosPerNat[n].length; });
+    var volgorde=[];
+    for(var r=0;r<maxLen;r++){ natKeys.forEach(function(nat){ if(duosPerNat[nat][r]) volgorde.push({nat:nat,duo:duosPerNat[nat][r]}); }); }
 
-    // Plaats elk duo op boot met minste van eigen nat, meeste ruimte
-    geordendeDuos.forEach(function(item){
-      var nat=item.nat; var duo=item.duo;
+    volgorde.forEach(function(item){
+      var nat=item.nat, duo=item.duo;
       var opties=ib.filter(function(b){return ruimte(b)>=duo.length;});
+      if(!opties.length) opties=ib.filter(function(b){return ruimte(b)>=2;}); // val terug op een paar
+      // boot met de minste van deze nationaliteit eerst, dan meeste ruimte → mengen (eis 3)
       opties.sort(function(a,b){
-        var aN=a.personen.filter(function(p){return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;}).length;
-        var bN=b.personen.filter(function(p){return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;}).length;
-        if(aN!==bN) return aN-bN;
+        var an=telNat(a,nat), bn=telNat(b,nat);
+        if(an!==bn) return an-bn;
         return ruimte(b)-ruimte(a);
       });
-      if(opties.length){ duo.forEach(function(k){ if(!plaats(k,opties[0])) noodEnkelen.push(k); }); }
-      else {
-        // Splits tot duo's van 2
-        var r=duo.slice();
-        while(r.length>=2){
-          var d=r.splice(0,2);
-          var o=ib.filter(function(b){return ruimte(b)>=2;});
-          o.sort(function(a,b){return ruimte(b)-ruimte(a);});
-          if(o.length){ d.forEach(function(k){if(!plaats(k,o[0])) noodEnkelen.push(k);}); }
-          else { d.forEach(function(k){noodEnkelen.push(k);}); }
-        }
-        if(r.length===1){
-          var solo=r[0];
-          var natO=ib.filter(function(b){return ruimte(b)>0&&b.personen.some(function(p){return p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;});});
-          natO.sort(sortMeestRuimte);
-          var ok=false;
-          for(var ni=0;ni<natO.length;ni++){if(plaats(solo,natO[ni])){ok=true;break;}}
-          if(!ok) noodEnkelen.push(solo);
-        }
-      }
+      if(opties.length){ duo.forEach(function(k){ plaats(k,opties[0]); }); }
+      // niet-geplaatste kinderen vallen door naar stap 4
     });
 
-    // ════════════════════════════════════════════════════════
-    // STAP 3 — Personen-koppelingen (voorkeur)
-    // ════════════════════════════════════════════════════════
-    var vrijeK=beschikK.filter(function(k){return !inGroep[k.id];});
-    var resterendV=shuffle(volwassenen.filter(function(v){return !v.boerderij&&!v.buitenland&&v.cat!=='P'&&!v.philippine&&!vind(zS,v.id)&&!vind(mS.slice(0,mi),v.id);}).concat(extraZ).concat(extraM));
-
+    // ── STAP 3 — koppelingen (voorkeur: samen op één boot) ──
     pKoppelingen.forEach(function(pk){
-      var p1=getPersoonByRef(pk.refs[0]); var p2=getPersoonByRef(pk.refs[1]);
+      var p1=getPersoonByRef(pk.refs[0]), p2=getPersoonByRef(pk.refs[1]);
       if(!p1||!p2) return;
-      // Controleer of beide nog vrij zijn (niet al geplaatst)
-      var p1Geplaatst=ib.some(function(b){return b.personen.some(function(p){return p.id===p1.id;});});
-      var p2Geplaatst=ib.some(function(b){return b.personen.some(function(p){return p.id===p2.id;});});
-      if(p1Geplaatst&&p2Geplaatst) return; // beide al geplaatst, check in validatie
-      if(p1Geplaatst||p2Geplaatst){
-        // Een van beide al geplaatst — probeer de ander op dezelfde boot
-        var geplaatst=ib.find(function(b){return b.personen.some(function(p){return p.id===(p1Geplaatst?p1:p2).id;});});
-        var vrije=p1Geplaatst?p2:p1;
-        if(geplaatst&&ruimte(geplaatst)>0) plaats(vrije,geplaatst);
+      var g1=isGeplaatst(p1), g2=isGeplaatst(p2);
+      if(g1&&g2) return;
+      if(g1||g2){
+        var bound=g1?p1:p2, vrij=g1?p2:p1;
+        var b=ib.find(function(b){return b.personen.indexOf(bound)!==-1;});
+        if(b && ruimte(b)>0 && magOpBoot(vrij,b)) plaats(vrij,b);
       } else {
-        // Beiden vrij — zoek boot met ruimte voor 2
         var opties=ib.filter(function(b){return ruimte(b)>=2;});
         opties.sort(sortMeestRuimte);
         if(opties.length){ plaats(p1,opties[0]); plaats(p2,opties[0]); }
       }
     });
 
-    // ════════════════════════════════════════════════════════
-    // STAP 4 — Rest verdelen (met uitsluiting-check)
-    // ════════════════════════════════════════════════════════
-    var resterendeK=vrijeK.filter(function(k){return !ib.some(function(b){return b.personen.some(function(p){return p.id===k.id;});});});
-    var resterendeV=resterendV.filter(function(v){return !ib.some(function(b){return b.personen.some(function(p){return p.id===v.id;});});});
-    var restLijst=shuffle(resterendeK.concat(noodEnkelen).concat(resterendeV));
-
-    restLijst.forEach(function(p){
-      var geplaatst=kies(p,function(b){return ruimte(b)>0&&magOpBoot(p,b);},sortMeestRuimte);
-      if(!geplaatst) geplaatst=kies(p,function(b){return ruimte(b)>0;},sortMeestRuimte);
-      if(!geplaatst) warn.push(escHtml(p.naam)+' kon niet worden ingedeeld (alle boten vol).');
+    // ── STAP 4 — rest verdelen (uitsluitingen waar mogelijk respecteren) ──
+    var rest=shuffle(
+      beschikK.filter(function(k){return !isGeplaatst(k);})
+        .concat(beschikV.filter(function(v){return !isGeplaatst(v);}))
+    );
+    rest.forEach(function(p){
+      var b=kies(p,function(b){return ruimte(b)>0&&magOpBoot(p,b);},sortMeestRuimte);
+      if(!b) b=kies(p,function(b){return ruimte(b)>0;},sortMeestRuimte);
+      if(!b) warn.push(escHtml(p.naam)+' kon niet worden ingedeeld (alle boten vol).');
     });
 
-    // ════════════════════════════════════════════════════════
-    // VALIDATIE
-    // ════════════════════════════════════════════════════════
+    // ── VALIDATIE → waarschuwingen voor weergave ──
     ib.forEach(function(b){
       if(b.personen.length>b.effectiefMax)
         warn.push('⛔ Boot "'+escHtml(b.naam)+'" is overvol: '+b.personen.length+'/'+b.effectiefMax);
       if(b.personen.length<b.min)
         warn.push('Boot "'+escHtml(b.naam)+'" heeft slechts '+b.personen.length+' personen (min. '+b.min+').');
-      // Uitsluiting check
+      // solo-nationaliteit
+      var telling={};
+      b.personen.forEach(function(p){ var n=natKey(p); if(n) telling[n]=(telling[n]||0)+1; });
+      Object.keys(telling).forEach(function(n){
+        if(telling[n]===1 && totaalVanNat(n)>=2){
+          var solo=b.personen.find(function(p){return natKey(p)===n;});
+          warn.push('🌍 '+escHtml(solo?solo.naam:'?')+' is als enige van zijn/haar nationaliteit op boot "'+escHtml(b.naam)+'".');
+        }
+      });
+      // uitsluiting geschonden
       rKoppelingen.forEach(function(r){
         var h1=b.personen.some(function(p){return refVan(p)===r.ids[0];});
         var h2=b.personen.some(function(p){return refVan(p)===r.ids[1];});
         if(h1&&h2){
-          var n1=getPersoonByRef(r.ids[0]); var n2=getPersoonByRef(r.ids[1]);
-          warn.push('⚠ Uitsluiting: '+(n1?escHtml(n1.naam):'?')+' en '+(n2?escHtml(n2.naam):'?')+' op boot "'+escHtml(b.naam)+'".');
+          var n1=getPersoonByRef(r.ids[0]), n2=getPersoonByRef(r.ids[1]);
+          warn.push('⚠ Uitsluiting: '+(n1?escHtml(n1.naam):'?')+' en '+(n2?escHtml(n2.naam):'?')+' samen op boot "'+escHtml(b.naam)+'".');
         }
       });
     });
-    // Koppeling check
     pKoppelingen.forEach(function(pk){
-      var p1=getPersoonByRef(pk.refs[0]); var p2=getPersoonByRef(pk.refs[1]);
+      var p1=getPersoonByRef(pk.refs[0]), p2=getPersoonByRef(pk.refs[1]);
       if(!p1||!p2) return;
-      var b1=ib.find(function(b){return b.personen.some(function(p){return p.id===p1.id;});});
-      var b2=ib.find(function(b){return b.personen.some(function(p){return p.id===p2.id;});});
+      var b1=ib.find(function(b){return b.personen.indexOf(p1)!==-1;});
+      var b2=ib.find(function(b){return b.personen.indexOf(p2)!==-1;});
       if(b1&&b2&&b1!==b2) warn.push('🤝 Koppeling niet gelukt: '+escHtml(p1.naam)+' en '+escHtml(p2.naam)+' op verschillende boten.');
     });
-    // Solo nationaliteit check
-    ib.forEach(function(b){
-      var natTelling={};
-      b.personen.forEach(function(p){
-        if(p.geslacht!==undefined&&p.nationaliteit){
-          var nat=p.nationaliteit.toLowerCase().trim();
-          natTelling[nat]=(natTelling[nat]||0)+1;
-        }
-      });
-      Object.keys(natTelling).forEach(function(nat){
-        var totaal=beschikK.filter(function(k){return k.nationaliteit&&k.nationaliteit.toLowerCase().trim()===nat;}).length;
-        if(natTelling[nat]===1&&totaal>=2){
-          var solo=b.personen.find(function(p){return p.geslacht!==undefined&&p.nationaliteit&&p.nationaliteit.toLowerCase().trim()===nat;});
-          warn.push('🌍 '+escHtml(solo?solo.naam:'?')+' is als enige '+escHtml(nat)+' op boot "'+escHtml(b.naam)+'".');
-        }
-      });
-    });
 
-    return {ib:ib,warn:warn,score:scorePoging(ib,warn)};
+    return {ib:ib, warn:warn, score:scorePoging(ib)};
   }
 
-
-
-
-
-  // ── RETRY LOOP: max 100 pogingen, kies beste ──
-  var beste=null;
-  var MAX=100;
+  // ── RETRY-LOOP: pak de beste van veel pogingen (overvol nooit accepteren) ──
+  var beste=null, MAX=150;
   for(var poging=0;poging<MAX;poging++){
-    var resultaat=eenPoging();
-    // Accepteer alleen indelingen zonder overvol
-    var heeftOvervol=resultaat.ib.some(function(b){return b.personen.length>b.effectiefMax;});
-    if(heeftOvervol) continue; // deze poging niet acceptabel
-    if(!beste||resultaat.score<beste.score) beste=resultaat;
-    if(beste.score===0) break; // perfecte oplossing
+    var res=eenPoging();
+    var overvol=res.ib.some(function(b){return b.personen.length>b.effectiefMax;});
+    if(overvol) continue;
+    if(!beste||res.score<beste.score) beste=res;
+    if(beste.score===0) break;
   }
-
-  // Als alle pogingen overvol waren, pak toch de beste (fout melden)
-  if(!beste){
-    for(var p2=0;p2<MAX;p2++){
-      var r2=eenPoging();
-      if(!beste||r2.score<beste.score) beste=r2;
-    }
-    beste.warn.unshift('⛔ Na 100 pogingen kon geen geldige indeling gevonden worden zonder overvol. Controleer of er genoeg capaciteit is.');
+  if(!beste){ // alle pogingen overvol → toch de minst-slechte
+    for(var p2=0;p2<MAX;p2++){ var r2=eenPoging(); if(!beste||r2.score<beste.score) beste=r2; }
+    beste.warn.unshift('⛔ Geen geldige indeling zonder overvol gevonden. Controleer of er genoeg capaciteit is.');
   }
 
   var ib=beste.ib, warn=beste.warn;
 
-  // Render
-  if(warn.length){
-    msgsEl.innerHTML=warn.map(function(w){return '<div class="msg msg-warn">⚠ '+w+'</div>';}).join('');
-  } else {
-    msgsEl.innerHTML='<div class="msg msg-ok">✅ Indeling geslaagd — alle regels voldaan.</div>';
-  }
+  // Herhaalde samenstellingen tellen (vóór committen aan de geschiedenis)
+  var herhaald=ib.filter(function(b){ var s=bootSignatuur(b.personen); return s && historieSignaturen[s]; }).length;
+
+  // Commit deze ronde aan de geschiedenis (eis 4)
+  rondeNr++;
+  ib.forEach(function(b){ var s=bootSignatuur(b.personen); if(s) historieSignaturen[s]=true; });
+
+  // ── BERICHTEN ──
+  var berichten=[];
+  if(!warn.length) berichten.push('<div class="msg msg-ok">✅ Indeling geslaagd — alle harde regels voldaan.</div>');
+  else berichten.push(warn.map(function(w){return '<div class="msg msg-warn">⚠ '+w+'</div>';}).join(''));
+  if(herhaald>0)
+    berichten.push('<div class="msg msg-warn">↺ '+herhaald+' boot(en) hebben een samenstelling die al eerder voorkwam — kon binnen '+MAX+' pogingen niet vermeden worden.</div>');
+  else if(rondeNr>1)
+    berichten.push('<div class="msg msg-info">↺ Alle boten hebben een nieuwe samenstelling t.o.v. eerdere rondes.</div>');
+  msgsEl.innerHTML=berichten.join('');
+
+  // ── WEERGAVE ──
+  document.getElementById('rondeInfo').textContent='Ronde '+rondeNr;
+  document.getElementById('btnGen').textContent='🔀 Opnieuw genereren';
+  document.getElementById('btnExport').style.display='inline-block';
+  document.getElementById('btnResetHist').style.display='inline-block';
 
   var totaal=ib.reduce(function(s,b){return s+b.personen.length;},0);
   outEl.innerHTML='<div class="ronde-header">Ronde '+rondeNr+'</div>'
@@ -864,13 +829,19 @@ function genereer() {
   _lastIndeling={boten:ib,philippine:philippine,boerderij:boerderij,buitenland:buitenland};
 }
 
+function resetGeschiedenis() {
+  if(!confirm('Geschiedenis van eerdere rondes wissen? Daarna mogen samenstellingen weer herhaald worden.')) return;
+  historieSignaturen={}; rondeNr=0;
+  document.getElementById('rondeInfo').textContent='Geschiedenis gewist';
+}
+
 function stat(v,l){return '<div><div class="stat-val">'+v+'</div><div class="stat-lbl">'+l+'</div></div>';}
 
 function personRij(p){
   var b=p.cat?badge(p.cat):badge(p.geslacht==='J'?'J':'Mv',p.geslacht);
   var mv=p.mv?' '+badge('mplus','m+'):'';
-  var nat=(!p.cat&&p.nationaliteit)?' <span style="font-size:10px;color:#5a8aaa">'+escHtml(p.nationaliteit)+'</span>':'';
-  var ref=p.cat?'v_'+p.id:'k_'+p.id;
+  var nat=(isKind(p)&&p.nationaliteit)?' <span style="font-size:10px;color:#5a8aaa">'+escHtml(p.nationaliteit)+'</span>':'';
+  var ref=refVan(p);
   var heeftPK=pKoppelingen.some(function(pk){return pk.refs.indexOf(ref)!==-1;});
   var heeftRK=rKoppelingen.some(function(r){return r.ids.indexOf(ref)!==-1;});
   var kBadge=heeftPK?' <span class="badge badge-koppel">🤝</span>':'';
@@ -882,8 +853,7 @@ function bootCard(naam,personen,isPhil,min,effectiefMax,origMax){
   var hasZ=personen.some(function(p){return p.cat==='Z';});
   var hasM=personen.some(function(p){return p.cat==='M';});
   var wZ=(!isPhil&&!hasZ)?'<span class="warn-label">⚠Z</span>':'';
-  var heeftKinderen=personen.some(function(p){return p.geslacht!==undefined;});
-  var wM=(!isPhil&&!hasM&&heeftKinderen)?'<span class="warn-label">⚠M</span>':'';
+  var wM=(!isPhil&&!hasM)?'<span class="warn-label">⚠M</span>':'';
   var overvol=!isPhil&&personen.length>effectiefMax;
   var tekort=!isPhil&&personen.length<min;
   var kleur=(overvol||tekort)?'#7a1010':'#1a3050';
@@ -905,76 +875,49 @@ function locatieCard(naam,personen,kleur){
     +'<div class="boot-body">'+personen.map(personRij).join('')+'</div></div>';
 }
 
-// ── EXPORT NAAR XLSX (via CSV in Excel-compatibel formaat) ───────────────
-var _lastIndeling = null; // bewaar laatste indeling voor export
-
-function exportXlsx() {
+// ════════════════════════════════════════════════════════════════════════
+//  CSV-EXPORT
+// ════════════════════════════════════════════════════════════════════════
+function exportCsv() {
   if (!_lastIndeling) { alert('Genereer eerst een indeling.'); return; }
   var ind = _lastIndeling;
-
   function schoon(s) {
-    // Verwijder emoji's, pictogrammen en andere niet-teksttekens
     return String(s||'')
       .replace(/[\u{1F000}-\u{1FFFF}]/gu,'')
       .replace(/[\u{2600}-\u{27BF}]/gu,'')
       .replace(/[\u{1F300}-\u{1F9FF}]/gu,'')
-      .replace(/"/g, "'")  // dubbele aanhalingstekens vervangen
-      .trim();
+      .replace(/"/g, "'").trim();
   }
-
   function csvRij(velden) {
     return velden.map(function(v){
       var s = schoon(String(v||''));
-      // Omsluit met aanhalingstekens als het komma's of newlines bevat
-      if(s.indexOf(',')!==-1||s.indexOf('\n')!==-1||s.indexOf('"')!==-1){
-        return '"'+s+'"';
-      }
+      if(s.indexOf(',')!==-1||s.indexOf('\n')!==-1) return '"'+s+'"';
       return s;
     }).join(',');
   }
+  var regels = [csvRij(['Boot/Locatie','Naam','Type','Geslacht/Cat','Nationaliteit','m+'])];
+  ind.boten.forEach(function(b){ b.personen.forEach(function(p){
+    regels.push(csvRij([schoon(b.naam), p.naam, p.cat?'Volwassene':'Kind', p.cat||p.geslacht, p.nationaliteit||'', p.mv?'m+':'']));
+  }); });
+  ind.philippine.forEach(function(p){ regels.push(csvRij(['Philippine', p.naam, p.cat?'Volwassene':'Kind', p.cat||p.geslacht||'', p.nationaliteit||'', p.mv?'m+':''])); });
+  ind.boerderij.forEach(function(p){ var k=!p.cat; regels.push(csvRij(['Boerderij', p.naam, k?'Kind':'Volwassene', k?p.geslacht:p.cat, p.nationaliteit||'', p.mv?'m+':''])); });
+  ind.buitenland.forEach(function(p){ var k=!p.cat; regels.push(csvRij(['Buitenland', p.naam, k?'Kind':'Volwassene', k?p.geslacht:p.cat, p.nationaliteit||'', p.mv?'m+':''])); });
 
-  // Bouw CSV
-  var regels = [];
-  regels.push(csvRij(['Boot/Locatie','Naam','Type','Geslacht/Cat','Nationaliteit','m+']));
-
-  ind.boten.forEach(function(b) {
-    var bootnaam = schoon(b.naam);
-    b.personen.forEach(function(p) {
-      regels.push(csvRij([bootnaam, p.naam, p.cat?'Volwassene':'Kind', p.cat||p.geslacht, p.nationaliteit||'', p.mv?'m+':'']));
-    });
-  });
-  ind.philippine.forEach(function(p) {
-    regels.push(csvRij(['Philippine', p.naam, p.cat?'Volwassene':'Kind', p.cat||p.geslacht||'', p.nationaliteit||'', p.mv?'m+':'']));
-  });
-  ind.boerderij.forEach(function(p) {
-    var k=!p.cat;
-    regels.push(csvRij(['Boerderij', p.naam, k?'Kind':'Volwassene', k?p.geslacht:p.cat, p.nationaliteit||'', p.mv?'m+':'']));
-  });
-  ind.buitenland.forEach(function(p) {
-    var k=!p.cat;
-    regels.push(csvRij(['Buitenland', p.naam, k?'Kind':'Volwassene', k?p.geslacht:p.cat, p.nationaliteit||'', p.mv?'m+':'']));
-  });
-
-  var csv = '\uFEFF' + regels.join('\r\n'); // BOM voor Excel UTF-8 herkenning
+  var csv = '\uFEFF' + regels.join('\r\n');
   var blob = new Blob([csv], {type: 'text/csv;charset=utf-8'});
   var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = 'zomerzotheid-ronde' + rondeNr + '.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  var a = document.createElement('a'); a.href=url; a.download='zomerzotheid-ronde'+rondeNr+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
-
-// ── EXCEL / CSV IMPORT ───────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+//  EXCEL / CSV IMPORT
+// ════════════════════════════════════════════════════════════════════════
 function isTruthy(v) {
   if (!v) return false;
   var s = String(v).toLowerCase().trim();
   return ['ja','yes','1','x','true','waar'].indexOf(s) !== -1;
 }
-
 function importeerExcel(event) {
   var file = event.target.files[0];
   if (!file) return;
@@ -984,52 +927,36 @@ function importeerExcel(event) {
       var wb = XLSX.read(e.target.result, {type:'array'});
       var toegevoegdV = 0, toegevoegdK = 0, fout = [];
 
-      // Zoek volwassenen-tabblad
       var vNaam = wb.SheetNames.find(function(n){ return n.toLowerCase().indexOf('volwassen') !== -1; });
       if (vNaam) {
-        var rijen = XLSX.utils.sheet_to_json(wb.Sheets[vNaam], {defval:''});
-        rijen.forEach(function(r) {
+        XLSX.utils.sheet_to_json(wb.Sheets[vNaam], {defval:''}).forEach(function(r) {
           var naam = (r['Naam']||r['naam']||'').toString().trim();
           var cat  = (r['Categorie']||r['categorie']||r['Cat']||r['cat']||'').toString().trim().toUpperCase();
           if (!naam) return;
-          if (['M','K','C','P','Z','S','G'].indexOf(cat) === -1) {
-            fout.push(naam + ': onbekende categorie "' + cat + '"');
-            return;
-          }
-          volwassenen.push({
-            id: uid(), naam: naam, cat: cat,
-            boerderij:  isTruthy(r['Boerderij']  ||r['boerderij']),
-            buitenland: isTruthy(r['Buitenland']  ||r['buitenland']),
-            philippine: isTruthy(r['Philippine']  ||r['philippine'])
-          });
+          if (['M','K','C','P','Z','S','G'].indexOf(cat) === -1) { fout.push(naam + ': onbekende categorie "' + cat + '"'); return; }
+          volwassenen.push({ id: uid(), naam: naam, cat: cat,
+            boerderij: isTruthy(r['Boerderij']||r['boerderij']),
+            buitenland:isTruthy(r['Buitenland']||r['buitenland']),
+            philippine:isTruthy(r['Philippine']||r['philippine']) });
           toegevoegdV++;
         });
       }
-
-      // Zoek kinderen-tabblad
       var kNaam = wb.SheetNames.find(function(n){ return n.toLowerCase().indexOf('kind') !== -1; });
       if (kNaam) {
-        var rijK = XLSX.utils.sheet_to_json(wb.Sheets[kNaam], {defval:''});
-        rijK.forEach(function(r) {
+        XLSX.utils.sheet_to_json(wb.Sheets[kNaam], {defval:''}).forEach(function(r) {
           var naam     = (r['Naam']||r['naam']||'').toString().trim();
           var geslacht = (r['J/M']||r['Geslacht']||r['geslacht']||r['j/m']||'').toString().trim().toUpperCase();
           if (!naam) return;
-          if (['J','M'].indexOf(geslacht) === -1) {
-            fout.push(naam + ': geslacht moet J of M zijn');
-            return;
-          }
-          kinderen.push({
-            id: uid(), naam: naam, geslacht: geslacht,
+          if (['J','M'].indexOf(geslacht) === -1) { fout.push(naam + ': geslacht moet J of M zijn'); return; }
+          kinderen.push({ id: uid(), naam: naam, geslacht: geslacht,
             nationaliteit: (r['Nationaliteit']||r['nationaliteit']||'').toString().trim(),
-            mv:         isTruthy(r['m+']||r['mv']||r['MV']||r['Mv']||r['M+']),
-            boerderij:  isTruthy(r['Boerderij'] ||r['boerderij']),
-            buitenland: isTruthy(r['Buitenland']||r['buitenland']),
-            philippine: isTruthy(r['Philippine'] ||r['philippine'])
-          });
+            mv:        isTruthy(r['m+']||r['mv']||r['MV']||r['Mv']||r['M+']),
+            boerderij: isTruthy(r['Boerderij']||r['boerderij']),
+            buitenland:isTruthy(r['Buitenland']||r['buitenland']),
+            philippine:isTruthy(r['Philippine']||r['philippine']) });
           toegevoegdK++;
         });
       }
-
       renderVol(); renderKin();
       var status = '✅ ' + toegevoegdV + ' volwassenen, ' + toegevoegdK + ' kinderen geladen';
       if (fout.length) status += ' — ⚠ ' + fout.length + ' overgeslagen: ' + fout.join('; ');
@@ -1043,79 +970,57 @@ function importeerExcel(event) {
   };
   reader.readAsArrayBuffer(file);
 }
-
 function downloadVoorbeeldExcel() {
   var wb = XLSX.utils.book_new();
-
-  var volwData = [
+  var wsV = XLSX.utils.aoa_to_sheet([
     ['Naam','Categorie','Boerderij','Buitenland','Philippine'],
-    ['Jan Jansen','Z','','',''],
-    ['Marie de Vries','M','','',''],
-    ['Piet Pietersen','K','','',''],
-    ['Anna Smit','P','','','ja'],
-    ['Kees de Boer','Z','','',''],
-    ['Lisa Bakker','M','ja','',''],
-    ['Tom van Dijk','S','','',''],
-    ['Sara Visser','C','','ja','']
-  ];
-  var wsV = XLSX.utils.aoa_to_sheet(volwData);
+    ['Jan Jansen','Z','','',''], ['Marie de Vries','M','','',''],
+    ['Piet Pietersen','K','','',''], ['Anna Smit','P','','','ja'],
+    ['Kees de Boer','Z','','',''], ['Lisa Bakker','M','ja','',''],
+    ['Tom van Dijk','S','','',''], ['Sara Visser','C','','ja','']
+  ]);
   wsV['!cols'] = [{wch:20},{wch:12},{wch:12},{wch:12},{wch:12}];
   XLSX.utils.book_append_sheet(wb, wsV, 'Volwassenen');
-
-  var kindData = [
+  var wsK = XLSX.utils.aoa_to_sheet([
     ['Naam','J/M','m+','Nationaliteit','Boerderij','Buitenland','Philippine'],
-    ['Emma','M','','Nederlands','','',''],
-    ['Lucas','J','','Nederlands','','',''],
-    ['Sophie','M','ja','Oekraïens','','',''],
-    ['Daan','J','','Nederlands','ja','',''],
-    ['Olena','M','','Oekraïens','','',''],
-    ['Mykola','J','','Oekraïens','','',''],
+    ['Emma','M','','Nederlands','','',''], ['Lucas','J','','Nederlands','','',''],
+    ['Sophie','M','ja','Oekraïens','','',''], ['Daan','J','','Nederlands','ja','',''],
+    ['Olena','M','','Oekraïens','','',''], ['Mykola','J','','Oekraïens','','',''],
     ['Julia','M','','Belgisch','','','ja']
-  ];
-  var wsK = XLSX.utils.aoa_to_sheet(kindData);
+  ]);
   wsK['!cols'] = [{wch:20},{wch:6},{wch:6},{wch:14},{wch:12},{wch:12},{wch:12}];
   XLSX.utils.book_append_sheet(wb, wsK, 'Kinderen');
-
   XLSX.writeFile(wb, 'voorbeeld-deelnemers.xlsx');
 }
 
-function escXml(s) {
-  s = String(s);
-  // Verwijder illegale XML-tekens (control chars behalve tab/newline)
-  s = s.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-  // Verwijder emoji's en andere tekens buiten het basis XML-bereik
-  s = s.replace(/[\uD800-\uDFFF]/g, ''); // surrogaat-paren
-  s = s.replace(/[^\u0009\u000A\u000D\u0020-\uD7FF\uE000-\uFFFD]/g, '');
-  // Standaard XML-escaping
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+// ════════════════════════════════════════════════════════════════════════
+//  JSON EXPORT / IMPORT  &  OPSLAG
+// ════════════════════════════════════════════════════════════════════════
+function huidigeData() {
+  return { volwassenen:volwassenen, kinderen:kinderen, boten:boten,
+           rKoppelingen:rKoppelingen, pKoppelingen:pKoppelingen };
+}
+function laadData(data) {
+  volwassenen  = data.volwassenen  || [];
+  kinderen     = data.kinderen     || [];
+  boten        = data.boten        || [];
+  rKoppelingen = data.rKoppelingen || [];
+  pKoppelingen = data.pKoppelingen || [];
+  historieSignaturen = {}; rondeNr = 0; _lastIndeling = null;
+  renderVol(); renderKin(); renderBoten(); renderPKoppelingen(); renderRKoppelingen();
+  document.getElementById('btnGen').textContent='🎲 Genereer indeling';
+  document.getElementById('rondeInfo').textContent='';
 }
 
-// ── JSON EXPORT / IMPORT ─────────────────────────────────────────────────
 function exportJson() {
-  var data = {
-    versie: 1,
-    datum: new Date().toISOString().slice(0,10),
-    volwassenen: volwassenen,
-    kinderen: kinderen,
-    boten: boten,
-    
-    
-    rKoppelingen: rKoppelingen,
-    pKoppelingen: pKoppelingen
-  };
-  var json = JSON.stringify(data, null, 2);
-  var blob = new Blob([json], {type: 'application/json'});
+  var data = huidigeData();
+  data.versie = 1; data.datum = new Date().toISOString().slice(0,10);
+  var blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
   var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = 'zomerzotheid-backup-' + data.datum + '.json';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  var a = document.createElement('a'); a.href=url; a.download='zomerzotheid-backup-'+data.datum+'.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   toonOpslagStatus('📤 Geëxporteerd', '#4dabf7');
 }
-
 function importJson(event) {
   var file = event.target.files[0];
   if (!file) return;
@@ -1123,98 +1028,52 @@ function importJson(event) {
   reader.onload = function(e) {
     try {
       var data = JSON.parse(e.target.result);
-      if (!data.volwassenen && !data.kinderen) {
-        toonOpslagStatus('❌ Ongeldig bestand', '#ff6b6b'); return;
-      }
+      if (!data.volwassenen && !data.kinderen) { toonOpslagStatus('❌ Ongeldig bestand', '#ff6b6b'); return; }
       if (!confirm('Huidige data overschrijven met inhoud van "' + file.name + '"?')) return;
-      volwassenen  = data.volwassenen  || [];
-      kinderen     = data.kinderen     || [];
-      boten        = data.boten        || [];
-      
-      
-      rKoppelingen = data.rKoppelingen || [];
-      pKoppelingen = data.pKoppelingen || [];
-      renderVol(); renderKin(); renderBoten();
-      renderKKoppelingen(); renderMKoppelingen(); renderRKoppelingen(); renderPKoppelingen();
+      laadData(data);
       toonOpslagStatus('📥 ' + volwassenen.length + ' volw., ' + kinderen.length + ' kind., ' + boten.length + ' boten geladen', '#4dabf7');
-    } catch(err) {
-      toonOpslagStatus('❌ Fout: ' + err.message, '#ff6b6b');
-    }
+    } catch(err) { toonOpslagStatus('❌ Fout: ' + err.message, '#ff6b6b'); }
     event.target.value = '';
   };
   reader.readAsText(file);
 }
-
 function slaOp() {
-  var data = {
-    volwassenen: volwassenen, kinderen: kinderen, boten: boten,
-     
-    rKoppelingen: rKoppelingen, pKoppelingen: pKoppelingen
-  };
   try {
-    localStorage.setItem('zomerkamp_data', JSON.stringify(data));
+    localStorage.setItem('zomerkamp_data', JSON.stringify(huidigeData()));
     toonOpslagStatus('✅ Opgeslagen in browser', '#51cf66');
-  } catch(e) {
-    toonOpslagStatus('❌ Opslaan mislukt: '+e.message, '#ff6b6b');
-  }
+  } catch(e) { toonOpslagStatus('❌ Opslaan mislukt: '+e.message, '#ff6b6b'); }
 }
-
 function laadOp() {
   try {
     var raw = localStorage.getItem('zomerkamp_data');
     if (!raw) { toonOpslagStatus('Geen opgeslagen data gevonden.', '#fcc419'); return; }
-    var data = JSON.parse(raw);
-    volwassenen   = data.volwassenen   || [];
-    kinderen      = data.kinderen      || [];
-    boten         = data.boten         || [];
-    rKoppelingen  = data.rKoppelingen  || [];
-    pKoppelingen  = data.pKoppelingen  || [];
-    renderVol(); renderKin(); renderBoten();
-    renderKKoppelingen(); renderMKoppelingen(); renderRKoppelingen(); renderPKoppelingen();
+    laadData(JSON.parse(raw));
     toonOpslagStatus('✅ Data herladen ('+volwassenen.length+' volw., '+kinderen.length+' kind., '+boten.length+' boten)', '#51cf66');
-  } catch(e) {
-    toonOpslagStatus('❌ Laden mislukt: '+e.message, '#ff6b6b');
-  }
+  } catch(e) { toonOpslagStatus('❌ Laden mislukt: '+e.message, '#ff6b6b'); }
 }
-
 function wisData() {
   if (!confirm('Weet je zeker dat je alle ingevoerde data wilt wissen?')) return;
   localStorage.removeItem('zomerkamp_data');
-  volwassenen=[]; kinderen=[]; boten=[];
-  rKoppelingen=[]; pKoppelingen=[];
-  renderVol(); renderKin(); renderBoten();
-  renderKKoppelingen(); renderMKoppelingen(); renderRKoppelingen(); renderPKoppelingen();
+  laadData({});
   document.getElementById('indelingMsgs').innerHTML='';
   document.getElementById('indelingOutput').innerHTML='';
-  rondeNr=0;
-  document.getElementById('btnGen').textContent='🎲 Genereer indeling';
-  document.getElementById('rondeInfo').textContent='';
   toonOpslagStatus('🗑 Data gewist', '#fcc419');
 }
-
 function toonOpslagStatus(tekst, kleur) {
   var el = document.getElementById('opslagStatus');
   if (!el) return;
-  el.textContent = tekst;
-  el.style.color = kleur;
+  el.textContent = tekst; el.style.color = kleur;
   setTimeout(function(){ el.textContent=''; }, 4000);
 }
 
-// Auto-laad bij openen
+// Auto-detectie opgeslagen data bij openen
 window.addEventListener('load', function() {
-  var raw = localStorage.getItem('zomerkamp_data');
-  if (raw) {
+  renderVol(); renderKin(); renderBoten();
+  if (localStorage.getItem('zomerkamp_data')) {
     var banner = document.getElementById('herstelBanner');
     if (banner) banner.style.display = 'flex';
   }
 });
-</script>
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('sw.js').catch(function(){});
-  });
-}
 </script>
 </body>
 </html>
