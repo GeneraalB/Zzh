@@ -285,7 +285,7 @@ select option { background: #081526; }
     <div style="max-width:520px">
       <div class="card">
         <div class="card-title">⛵ Valken / Randmeren</div>
-        <p class="hint">Elke boot krijgt automatisch <strong>≥1 Zeiler (Z)</strong> én <strong>≥1 Medisch (M)</strong> — dit is een harde eis. Een boot met een m+-kind heeft automatisch max−1 capaciteit.</p>
+        <p class="hint">Elke boot krijgt automatisch <strong>≥1 Zeiler (Z)</strong> én <strong>≥1 Medisch (M)</strong> — dit is een harde eis. De boten worden zo gelijk mogelijk in grootte verdeeld. Een boot met een m+-kind heeft automatisch max−1 capaciteit.</p>
         <div class="lijst" id="bLijst"><div class="leeg">Nog geen boten</div></div>
         <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px;align-items:end">
           <div class="form-col"><label class="lbl">Naam</label><input type="text" id="bNaam" placeholder="bijv. Valk 1" onkeydown="if(event.key==='Enter')addBoot()"></div>
@@ -656,6 +656,14 @@ function genereer() {
       var b2=ib.find(function(b){return b.personen.indexOf(p2)!==-1;});
       if(b1&&b2&&b1!==b2) score += 500;
     });
+    // gelijke grootte: bestraf afwijking van het gemiddelde aantal per boot
+    var sizes = ib.map(function(b){return b.personen.length;});
+    var gem = sizes.reduce(function(a,b){return a+b;},0) / (sizes.length||1);
+    sizes.forEach(function(s){ score += Math.pow(s-gem,2) * 120; });
+    // iedereen moet geplaatst zijn — weegt zwaarder dan balans/mengen/solo
+    var geplaatst = sizes.reduce(function(a,b){return a+b;},0);
+    var verwacht = beschikV.length + beschikK.length;
+    if (geplaatst < verwacht) score += (verwacht-geplaatst) * 50000;
     return score;
   }
 
@@ -671,6 +679,8 @@ function genereer() {
     function telNat(b,nat){ return b.personen.filter(function(p){return natKey(p)===nat;}).length; }
     function isGeplaatst(p){ return ib.some(function(b){return b.personen.indexOf(p)!==-1;}); }
     function sortMeestRuimte(a,b){ return ruimte(b)-ruimte(a); }
+    // gelijke grootte: boot met de minste personen eerst (m+ telt mee via effectiefMax-check)
+    function sortMinst(a,b){ return a.personen.length-b.personen.length; }
 
     function magOpBoot(p,b){
       var ref=refVan(p);
@@ -690,7 +700,7 @@ function genereer() {
     }
     function kies(p,filterFn,sortFn){
       var opties=ib.filter(filterFn||function(b){return ruimte(b)>0;});
-      opties.sort(sortFn||sortMeestRuimte);
+      opties.sort(sortFn||sortMinst);
       for(var i=0;i<opties.length;i++){ if(plaats(p,opties[i])) return opties[i]; }
       return null;
     }
@@ -729,11 +739,11 @@ function genereer() {
       var nat=item.nat, duo=item.duo;
       var opties=ib.filter(function(b){return ruimte(b)>=duo.length;});
       if(!opties.length) opties=ib.filter(function(b){return ruimte(b)>=2;}); // val terug op een paar
-      // boot met de minste van deze nationaliteit eerst, dan meeste ruimte → mengen (eis 3)
+      // boot met de minste van deze nationaliteit eerst, dan de minst gevulde → mengen + gelijke grootte
       opties.sort(function(a,b){
         var an=telNat(a,nat), bn=telNat(b,nat);
         if(an!==bn) return an-bn;
-        return ruimte(b)-ruimte(a);
+        return a.personen.length-b.personen.length;
       });
       if(opties.length){ duo.forEach(function(k){ plaats(k,opties[0]); }); }
       // niet-geplaatste kinderen vallen door naar stap 4
@@ -751,7 +761,7 @@ function genereer() {
         if(b && ruimte(b)>0 && magOpBoot(vrij,b)) plaats(vrij,b);
       } else {
         var opties=ib.filter(function(b){return ruimte(b)>=2;});
-        opties.sort(sortMeestRuimte);
+        opties.sort(sortMinst);
         if(opties.length){ plaats(p1,opties[0]); plaats(p2,opties[0]); }
       }
     });
@@ -762,8 +772,8 @@ function genereer() {
         .concat(beschikV.filter(function(v){return !isGeplaatst(v);}))
     );
     rest.forEach(function(p){
-      var b=kies(p,function(b){return ruimte(b)>0&&magOpBoot(p,b);},sortMeestRuimte);
-      if(!b) b=kies(p,function(b){return ruimte(b)>0;},sortMeestRuimte);
+      var b=kies(p,function(b){return ruimte(b)>0&&magOpBoot(p,b);},sortMinst);
+      if(!b) b=kies(p,function(b){return ruimte(b)>0;},sortMinst);
       if(!b) warn.push(escHtml(p.naam)+' kon niet worden ingedeeld (alle boten vol).');
     });
 
